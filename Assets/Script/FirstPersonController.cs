@@ -1,0 +1,161 @@
+using UnityEngine;
+
+public class FirstPersonController : MonoBehaviour
+{
+    [Header("Movement Speeds")]
+    [SerializeField] private float walkSpeed = 3.0f;
+    [SerializeField] private float sprintMultiplier = 2.0f;
+
+    [Header("Jump Parameters")]
+    [SerializeField] private float jumpForce = 5.0f;
+    [SerializeField] private float gravityMultiplier = 1.0f;
+
+    [Header("Look Parameters")]
+    [SerializeField] private float mouseSensitivity = 0.3f;
+    [SerializeField] private float upDownLookRange = 100.0f;
+
+    [Header("Fire Parameters")]
+    [SerializeField] private float fireForce = 5.0f;
+
+    [Header("Aim Mode")]
+    [SerializeField] private float zoomFOV = 40f;        
+    [SerializeField] private float normalFOV = 60f;      
+    [SerializeField] private GameObject crosshairUI;     
+    [SerializeField] private float zoomSpeed = 5f;       
+
+    private bool isAiming = false;
+    private float targetFOV;
+
+    [Header("References")]
+    [SerializeField] private CharacterController characterController;
+    [SerializeField] private Camera mainCamera;
+    [SerializeField] private PlayerInputHandler playerInputHandler;
+    [SerializeField] private GameObject projectilePrefab;
+
+    private Vector3 currentMovement;
+    private float verticalRotation;
+    private float CurrentSpeed => walkSpeed * (playerInputHandler.SprintTriggered ? sprintMultiplier : 1.0f);
+
+
+    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    void Start()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        targetFOV = normalFOV;
+        if (crosshairUI != null) 
+        {
+            crosshairUI.SetActive(false);
+        }
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        HandleMovement();
+        HandleRotation(); 
+        HandleAiming();
+        HandleShooting();
+        UpdateCameraZoom();
+    }
+
+    private Vector3 CalculateWorldDirection()
+    {
+        Vector3 inputDirection = new Vector3(playerInputHandler.MovementInput.x, 0.0f, playerInputHandler.MovementInput.y);
+        Vector3 worldDirection = transform.TransformDirection(inputDirection);
+        return worldDirection.normalized;
+    }
+
+    /* -------------------------------- MOVEMENT & JUMPING --------------------------------- */
+    private void HandleJumping()
+    {
+        if (characterController.isGrounded)
+        {
+            currentMovement.y = -0.5f; // Small downward force to keep the player grounded
+            if (playerInputHandler.JumpTriggered)
+            {
+                currentMovement.y = jumpForce;
+            }
+        }
+        else
+        {
+            currentMovement.y += Physics.gravity.y * gravityMultiplier * Time.deltaTime;
+        }
+    }
+
+    private void HandleMovement()
+    {
+        Vector3 worldDirection = CalculateWorldDirection();
+        currentMovement.x = worldDirection.x * CurrentSpeed;
+        currentMovement.z = worldDirection.z * CurrentSpeed;
+
+        HandleJumping();
+        characterController.Move(currentMovement * Time.deltaTime);
+    }
+
+
+
+    /* --------------------------------- ROTATION & LOOKING --------------------------------- */
+    private void ApplyHorizontalRotation(float rotationAmount)
+    {
+        transform.Rotate(0, rotationAmount, 0);
+    }
+
+    private void ApplyVerticalRotation(float rotationAmount)
+    {
+        verticalRotation = Mathf.Clamp(verticalRotation - rotationAmount, -upDownLookRange, upDownLookRange);
+        mainCamera.transform.localRotation = Quaternion.Euler(verticalRotation, 0, 0);
+    }
+
+    private void HandleRotation()
+    {
+        float mouseXRotation = playerInputHandler.rotationInput.x * mouseSensitivity;
+        float mouseYRotation = playerInputHandler.rotationInput.y * mouseSensitivity;
+
+        ApplyHorizontalRotation(mouseXRotation);
+        ApplyVerticalRotation(mouseYRotation);
+    }
+
+
+    
+    /* --------------------------------- FIRING --------------------------------- */
+    private void HandleAiming()
+    {
+        // Enter aim mode on right-click (if not already aiming)
+        if (playerInputHandler.AimTriggered && !isAiming)  // Need to add AimTriggered in PlayerInputHandler
+        {
+            isAiming = true;
+            targetFOV = zoomFOV;
+            if (crosshairUI != null) crosshairUI.SetActive(true);
+        }
+    }
+
+    private void HandleShooting()
+    {
+        // Only shoot if in aim mode AND fire button pressed
+        if (isAiming && playerInputHandler.FireTriggered)
+        {
+            // Spawn projectile (same code you already have)
+            Vector3 spawnPosition = mainCamera.transform.position + mainCamera.transform.forward * 0.5f;
+            Quaternion arrowRotation = mainCamera.transform.rotation * Quaternion.Euler(90f, 0f, 0f);
+            GameObject projectile = Instantiate(projectilePrefab, spawnPosition, arrowRotation);
+            Rigidbody rb = projectile.GetComponent<Rigidbody>();
+            if (rb != null) rb.AddForce(mainCamera.transform.forward * fireForce, ForceMode.Impulse);
+            Destroy(projectile, 5f);
+
+            // Exit aim mode after shooting
+            isAiming = false;
+            targetFOV = normalFOV;
+            if (crosshairUI != null) crosshairUI.SetActive(false);
+            
+            // Consume the fire input so it doesn't fire again next frame
+            playerInputHandler.ConsumeFire(); // we'll add this method
+        }
+    }
+
+    private void UpdateCameraZoom()
+    {
+        // Smoothly adjust FOV
+        mainCamera.fieldOfView = Mathf.Lerp(mainCamera.fieldOfView, targetFOV, zoomSpeed * Time.deltaTime);
+    }
+}
