@@ -84,18 +84,30 @@ public class BossHealth : MonoBehaviour
 
     public void BackToMenu()
     {
+        FitnessManager fitnessManager = FindAnyObjectByType<FitnessManager>();
+        if (fitnessManager != null)
+            fitnessManager.CommitSessionToLifetime();
+
         Time.timeScale = 1f;
         SceneManager.LoadScene(menuSceneName);
     }
 
     public void NextLevel()
     {
+        FitnessManager fitnessManager = FindAnyObjectByType<FitnessManager>();
+        if (fitnessManager != null)
+            fitnessManager.CommitSessionToLifetime();
+
         Time.timeScale = 1f;
         SceneManager.LoadScene(nextSceneName);
     }
 
     public void ExitGame()
     {
+        FitnessManager fitnessManager = FindAnyObjectByType<FitnessManager>();
+        if (fitnessManager != null)
+            fitnessManager.CommitSessionToLifetime();
+
         Time.timeScale = 1f;
         Application.Quit();
     }

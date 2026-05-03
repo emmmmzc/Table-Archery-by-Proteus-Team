@@ -50,8 +50,6 @@ public class PlayerEnergy : MonoBehaviour
         {
             UpdateUI();
         }
-
-        ShowAttackPopup(showExcellent: true);
     }
 
     void PerformSpecialAttack()

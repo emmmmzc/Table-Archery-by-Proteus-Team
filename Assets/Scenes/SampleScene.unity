@@ -751,7 +751,7 @@ MonoBehaviour:
   horizontalRange: 30
   depthRange: 5
   verticalOffset: 20
-  totalWaves: 3
+  totalWaves: 0
   minZombiesPerWave: 5
   maxZombiesPerWave: 10
   timeBetweenWaves: 5
@@ -2520,6 +2520,10 @@ PrefabInstance:
     - target: {fileID: 2145563792497325719, guid: 7b88a5518dadd044f960f792f8bff389, type: 3}
       propertyPath: m_Name
       value: Panel_lose
+      objectReference: {fileID: 0}
+    - target: {fileID: 2145563792497325719, guid: 7b88a5518dadd044f960f792f8bff389, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

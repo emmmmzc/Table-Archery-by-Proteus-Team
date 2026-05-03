@@ -164,6 +164,10 @@ public class PlayerHealth : MonoBehaviour
 
     public void BackToMenu()
     {
+        FitnessManager fitnessManager = FindAnyObjectByType<FitnessManager>();
+        if (fitnessManager != null)
+            fitnessManager.CommitSessionToLifetime();
+
         Time.timeScale = 1f;
         SceneManager.LoadScene(menuSceneName);
     }

@@ -13,10 +13,12 @@ public class DestroyOnHit : MonoBehaviour
     public int energyGain = 1;           // How much energy per destroyed enemy projectile
     
     private PlayerEnergy playerEnergy;
+    private FitnessManager fitnessManager;
     
     void Start()
     {
         playerEnergy = FindAnyObjectByType<PlayerEnergy>();
+        fitnessManager = FindAnyObjectByType<FitnessManager>();
     }
     
     private void OnCollisionEnter(Collision collision)
@@ -25,26 +27,26 @@ public class DestroyOnHit : MonoBehaviour
         {
             if (collision.gameObject.CompareTag(tag))
             {
-                // If hitting enemy projectile, add energy
-                if (tag == "EnemyProjectile" && playerEnergy != null)
+                if (tag == "EnemyProjectile" || tag == "Zombie")
                 {
-                    playerEnergy.AddEnergy(energyGain);
-                    Debug.Log("Energy gained!");
+                    if (explosionEffect != null)
+                        Instantiate(explosionEffect, transform.position, Quaternion.identity);
                 }
-                
-                // If hitting zombie
-                if (tag == "Zombie")
                 {
                     ZombieController zombie = collision.gameObject.GetComponent<ZombieController>();
                     if (zombie != null) zombie.TakeDamage(1);
                     if (bloodEffect != null)
                         Instantiate(bloodEffect, transform.position, Quaternion.identity);
-                    // Add energy and trigger popup when hitting zombie
+
                     if (playerEnergy != null)
                     {
                         playerEnergy.AddEnergy(energyGain);
-                        playerEnergy.ShowAttackPopup(showExcellent: true);
-                        Debug.Log("Energy gained! (Zombie)");
+                        FitnessHitResult hitResult = fitnessManager != null
+                            ? fitnessManager.OnHit()
+                            : new FitnessHitResult { isExcellent = true, totalScore = 0, grade = "Excellent" };
+
+                        playerEnergy.ShowAttackPopup(showExcellent: hitResult.isExcellent);
+                        Debug.Log($"Energy gained! Grade: {hitResult.grade}, Score: {hitResult.totalScore}");
                     }
                 }
                 
