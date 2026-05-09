@@ -8,9 +8,6 @@ using System.IO.Ports;
 
 public class MotorController : MonoBehaviour
 {
-    private const string PrefBaseForce = "MotorBaseForce";
-    private const string PrefPullLimit = "MotorPullLimit";
-    private const string PrefDistance = "MotorDistance";
     private const int StatusFrameLength = 40;
     private const byte FrameHeader = 0x64;
 
@@ -32,6 +29,12 @@ public class MotorController : MonoBehaviour
     public byte springSpeedCoeff = 0;
     public bool clearPullCountOnInit = true;
     public byte pullCountClearFlag = 1;
+
+    [Header("Raw Commands")]
+    public bool useRawCommands = true;
+    public string powerOnRawHex = "640002AA00000000000000000000000000000000000000000000000000BD0D0A";
+    public string powerOffRawHex = "6400025500000000000000000000000000000000000000000000000000590D0A";
+    public string defaultSpringRawHex = "6400010201F407D0640000000000000000000000000000000000000000030D0A";
 
     [Header("Scoring")]
     public int disconnectedMotorScore = 20;
@@ -68,7 +71,6 @@ public class MotorController : MonoBehaviour
     {
         if (logLifecycle)
             Debug.Log($"[IOT][Motor] Start on {gameObject.name} (autoConnect={autoConnect}, port={portName})");
-        LoadSettingsFromPrefs();
         if (autoConnect)
             Initialize(portName);
         else if (logLifecycle)
@@ -112,10 +114,18 @@ public class MotorController : MonoBehaviour
             if (autoPowerOn)
             {
                 SendPowerOn();
-                if (clearPullCountOnInit)
+                if (useRawCommands && !string.IsNullOrWhiteSpace(defaultSpringRawHex))
+                {
+                    SendRawHex(defaultSpringRawHex);
+                }
+                else if (clearPullCountOnInit)
+                {
                     SendSpringModeWithClear(springBaseForce, springPullLimit, springDistance, pullCountClearFlag);
+                }
                 else
+                {
                     SendSpringMode(springBaseForce, springPullLimit, springDistance);
+                }
             }
         }
         catch (Exception ex)
@@ -156,11 +166,23 @@ public class MotorController : MonoBehaviour
 
     public void SendPowerOn()
     {
+        if (useRawCommands && !string.IsNullOrWhiteSpace(powerOnRawHex))
+        {
+            SendRawHex(powerOnRawHex);
+            return;
+        }
+
         SendCommand(MotorCommandPacket.CreatePowerOnPacket());
     }
 
     public void SendPowerOff()
     {
+        if (useRawCommands && !string.IsNullOrWhiteSpace(powerOffRawHex))
+        {
+            SendRawHex(powerOffRawHex);
+            return;
+        }
+
         SendCommand(MotorCommandPacket.CreatePowerOffPacket());
     }
 
@@ -411,16 +433,6 @@ public class MotorController : MonoBehaviour
             parts[i] = data[i].ToString("X2");
 
         return string.Join(" ", parts);
-    }
-
-    private void LoadSettingsFromPrefs()
-    {
-        if (PlayerPrefs.HasKey(PrefBaseForce))
-            springBaseForce = (ushort)Mathf.Clamp(PlayerPrefs.GetInt(PrefBaseForce), 0, 1000);
-        if (PlayerPrefs.HasKey(PrefPullLimit))
-            springPullLimit = (ushort)Mathf.Clamp(PlayerPrefs.GetInt(PrefPullLimit), 0, 1000);
-        if (PlayerPrefs.HasKey(PrefDistance))
-            springDistance = (byte)Mathf.Clamp(PlayerPrefs.GetInt(PrefDistance), 0, 255);
     }
 
     void OnDestroy()
