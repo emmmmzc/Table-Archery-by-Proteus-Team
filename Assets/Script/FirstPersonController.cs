@@ -23,14 +23,26 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] private GameObject crosshairUI;     
     [SerializeField] private float zoomSpeed = 5f;       
 
+    [Header("Motor Distance Trigger")]
+    [SerializeField] private bool useMotorDistanceTrigger = true;
+    [SerializeField] private float motorChargeStartDistance = 80f;
+    [SerializeField] private float motorFireReleaseDistance = 25f;
+
     private bool isAiming = false;
     private float targetFOV;
+    private int lastMotorPullCount;
+    private bool motorFireTriggered;
+    private bool motorAimTriggered;
+    private bool motorChargeReady;
 
     [Header("References")]
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Camera mainCamera;
     [SerializeField] private PlayerInputHandler playerInputHandler;
     [SerializeField] private GameObject projectilePrefab;
+    [SerializeField] private PlayerEnergy playerEnergy;
+    [SerializeField] private FitnessManager fitnessManager;
+    [SerializeField] private MotorController motorController;
 
     private Vector3 currentMovement;
     private float verticalRotation;
@@ -47,6 +59,14 @@ public class FirstPersonController : MonoBehaviour
         {
             crosshairUI.SetActive(false);
         }
+
+        if (playerEnergy == null)
+            playerEnergy = FindAnyObjectByType<PlayerEnergy>();
+        if (fitnessManager == null)
+            fitnessManager = FindAnyObjectByType<FitnessManager>();
+        if (motorController == null)
+            motorController = FindAnyObjectByType<MotorController>();
+        lastMotorPullCount = motorController != null ? motorController.MotorPullCount : 0;
     }
 
     // Update is called once per frame
@@ -54,6 +74,7 @@ public class FirstPersonController : MonoBehaviour
     {
         HandleMovement();
         HandleRotation(); 
+        UpdateMotorDistanceTrigger();
         HandleAiming();
         HandleShooting();
         UpdateCameraZoom();
@@ -121,20 +142,51 @@ public class FirstPersonController : MonoBehaviour
     /* --------------------------------- FIRING --------------------------------- */
     private void HandleAiming()
     {
-        // Enter aim mode on right-click (if not already aiming)
-        if (playerInputHandler.AimTriggered && !isAiming)  // Need to add AimTriggered in PlayerInputHandler
+        bool shouldAim = useMotorDistanceTrigger ? motorAimTriggered : playerInputHandler.AimTriggered;
+        if (shouldAim && !isAiming)
         {
             isAiming = true;
             targetFOV = zoomFOV;
             if (crosshairUI != null) crosshairUI.SetActive(true);
+            if (motorController != null)
+                motorController.BeginForceWindow();
         }
     }
 
     private void HandleShooting()
     {
-        // Only shoot if in aim mode AND fire button pressed
-        if (isAiming && playerInputHandler.FireTriggered)
+        bool shouldFire = useMotorDistanceTrigger ? motorFireTriggered : playerInputHandler.FireTriggered;
+        if (isAiming && shouldFire)
         {
+            motorFireTriggered = false;
+            int motorScore = 0;
+            if (fitnessManager != null && !fitnessManager.useRealMotor)
+            {
+                motorScore = fitnessManager.defaultMotorScore;
+            }
+            else if (motorController != null)
+            {
+                motorScore = motorController.EndForceWindow();
+            }
+
+            FitnessHitResult hitResult = fitnessManager != null
+                ? fitnessManager.OnHit(motorScore)
+                : new FitnessHitResult { isExcellent = true, totalScore = motorScore, grade = "Excellent" };
+
+            if (playerEnergy != null)
+                playerEnergy.ShowAttackPopup(hitResult.isExcellent, hitResult.totalScore);
+
+            if (!hitResult.isExcellent)
+            {
+                isAiming = false;
+                targetFOV = normalFOV;
+                if (crosshairUI != null) crosshairUI.SetActive(false);
+                if (!useMotorDistanceTrigger)
+                    playerInputHandler.ConsumeFire();
+                motorFireTriggered = false;
+                return;
+            }
+
             // Spawn projectile (same code you already have)
             Vector3 spawnPosition = mainCamera.transform.position + mainCamera.transform.forward * 0.5f;
             Quaternion arrowRotation = mainCamera.transform.rotation * Quaternion.Euler(90f, 0f, 0f);
@@ -149,7 +201,46 @@ public class FirstPersonController : MonoBehaviour
             if (crosshairUI != null) crosshairUI.SetActive(false);
             
             // Consume the fire input so it doesn't fire again next frame
-            playerInputHandler.ConsumeFire(); // we'll add this method
+            if (!useMotorDistanceTrigger)
+                playerInputHandler.ConsumeFire(); // we'll add this method
+            motorFireTriggered = false;
+        }
+    }
+
+    private void UpdateMotorFireTrigger()
+    {
+        if (motorController == null)
+            return;
+
+        int currentCount = motorController.MotorPullCount;
+        if (currentCount < lastMotorPullCount)
+        {
+            lastMotorPullCount = currentCount;
+            return;
+        }
+
+        if (currentCount > lastMotorPullCount)
+            motorFireTriggered = true;
+
+        lastMotorPullCount = currentCount;
+    }
+
+    private void UpdateMotorDistanceTrigger()
+    {
+        if (!useMotorDistanceTrigger || motorController == null)
+            return;
+
+        float distance = motorController.MotorDistanceCm;
+        if (!motorChargeReady && distance >= motorChargeStartDistance)
+        {
+            motorChargeReady = true;
+            motorAimTriggered = true;
+        }
+        else if (motorChargeReady && distance <= motorFireReleaseDistance)
+        {
+            motorChargeReady = false;
+            motorAimTriggered = false;
+            motorFireTriggered = true;
         }
     }
 

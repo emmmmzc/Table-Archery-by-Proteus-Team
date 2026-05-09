@@ -16,6 +16,9 @@ public class BossShooter : MonoBehaviour
     [SerializeField] private float verticalRange = 2f;     // Small vertical variation
     [SerializeField] private float depthRange = 3f;        // Forward/backward variation
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip bossShootSound;
+
     void Start()
     {
         if (boss == null) boss = transform;
@@ -43,6 +46,8 @@ public class BossShooter : MonoBehaviour
         {
             rb.linearVelocity = direction * projectileSpeed;
         }
+        //sound effect
+        AudioManager.Instance.Play("BossShoot");    
 
         Destroy(proj, 8f);
     }

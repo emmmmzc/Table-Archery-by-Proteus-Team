@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 public class BossHealth : MonoBehaviour
 {
@@ -21,6 +22,7 @@ public class BossHealth : MonoBehaviour
 
     [Header("Win UI")]
     public GameObject winPanel;
+    public TMP_Text winSummaryText;
 
     [Header("Scene Names")]
     public string nextSceneName = "SampleScene";
@@ -75,6 +77,12 @@ public class BossHealth : MonoBehaviour
         Debug.Log("BOSS DEFEATED! YOU WIN!");
         if (winPanel != null)
         {
+            FitnessManager fitnessManager = FindAnyObjectByType<FitnessManager>();
+            if (fitnessManager != null && winSummaryText != null)
+            {
+                FitnessSessionResult session = fitnessManager.GetSessionResult();
+                winSummaryText.text = $"Score: {session.sessionScore}\nHits: {session.sessionHitCount}\nPulls: {session.sessionPullCount}";
+            }
             winPanel.SetActive(true);
             Time.timeScale = 0f;
             Cursor.lockState = CursorLockMode.None;

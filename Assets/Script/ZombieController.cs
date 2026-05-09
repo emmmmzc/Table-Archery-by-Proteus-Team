@@ -19,6 +19,12 @@ public class ZombieController : MonoBehaviour
     private int currentHealth;
     public GameObject bloodEffect;
 
+    [Header("Audio")]
+    public AudioClip zombieCreateSound;
+    public AudioClip zombieAttackSound;
+    public AudioClip zombieDamageSound;
+    public AudioClip zombieDeathSound;
+
     private bool isDead = false;
 
     void Start()
@@ -28,6 +34,7 @@ public class ZombieController : MonoBehaviour
         if (agent == null) agent = GetComponent<NavMeshAgent>();
 
         currentHealth = maxHealth;
+        AudioManager.Instance.Play("ZombieCreate");
         agent.updateRotation = true;
         agent.stoppingDistance = attackRange * 0.8f; // Agent stops just before attack range
     }
@@ -76,12 +83,14 @@ public class ZombieController : MonoBehaviour
         PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
         if (playerHealth != null)
             playerHealth.TakeDamage(attackDamage);
+        AudioManager.Instance.Play("ZombieAttack");
     }
 
     public void TakeDamage(int damage)
     {
         if (isDead) return;
         currentHealth -= damage;
+        AudioManager.Instance.Play("ZombieDamage");
         if (bloodEffect != null)
             Instantiate(bloodEffect, transform.position + Vector3.up, Quaternion.identity);
         if (currentHealth <= 0)
@@ -94,6 +103,7 @@ public class ZombieController : MonoBehaviour
         if (agent != null && agent.isOnNavMesh) agent.isStopped = true;
         if (animator != null) animator.SetTrigger("Die");
         GetComponent<Collider>().enabled = false;
+        AudioManager.Instance.Play("ZombieDeath");
         Destroy(gameObject, 2f);
     }
 

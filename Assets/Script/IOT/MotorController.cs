@@ -8,27 +8,39 @@ using System.IO.Ports;
 
 public class MotorController : MonoBehaviour
 {
+    private const string PrefBaseForce = "MotorBaseForce";
+    private const string PrefPullLimit = "MotorPullLimit";
+    private const string PrefDistance = "MotorDistance";
     private const int StatusFrameLength = 40;
     private const byte FrameHeader = 0x64;
+
     private const byte EndFlag1 = 0x0D;
     private const byte EndFlag2 = 0x0A;
     private const int FixedBaudRate = 57600;
 
     [Header("Connection")]
-    public string portName = "COM3";
+    public string portName = "COM7";
     public bool autoConnect = true;
     public float staleSeconds = 3f;
 
     [Header("Motor Config")]
     public bool autoPowerOn = true;
-    public ushort springBaseForce = 50;
+    public ushort springBaseForce = 100;
     public ushort springPullLimit = 100;
     public byte springDistance = 150;
+    public byte springModeCode = 0x02;
+    public byte springSpeedCoeff = 0;
     public bool clearPullCountOnInit = true;
     public byte pullCountClearFlag = 1;
 
     [Header("Scoring")]
     public int disconnectedMotorScore = 20;
+
+    [Header("Debug")]
+    public bool logLifecycle = true;
+    public bool logRawTx = true;
+    public bool logRawRx = true;
+    public bool logDecodedStatus = true;
 
 #if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
     private SerialPort serialPort;
@@ -42,6 +54,11 @@ public class MotorController : MonoBehaviour
     private float motorDistanceCm;
     private int motorPullCount;
 
+    private bool isTracking;
+    private float trackingStartTime;
+    private float accumulatedForce;
+    private float lastTrackingTime;
+
     public float MotorForceKg => motorForceKg;
     public float MotorSpeedCmPerSec => motorSpeedCmPerSec;
     public float MotorDistanceCm => motorDistanceCm;
@@ -49,21 +66,34 @@ public class MotorController : MonoBehaviour
 
     void Start()
     {
+        if (logLifecycle)
+            Debug.Log($"[IOT][Motor] Start on {gameObject.name} (autoConnect={autoConnect}, port={portName})");
+        LoadSettingsFromPrefs();
         if (autoConnect)
             Initialize(portName);
+        else if (logLifecycle)
+            Debug.Log("[IOT][Motor] Auto-connect disabled; call Initialize() manually.");
     }
 
     void Update()
     {
         PollIncoming();
+        UpdateTracking();
     }
 
     public void Initialize(string port)
     {
         if (initialized)
+        {
+            if (logLifecycle)
+                Debug.Log("[IOT][Motor] Initialize ignored: already initialized.");
             return;
+        }
 
         portName = port;
+
+        if (logLifecycle)
+            Debug.Log($"[IOT][Motor] Initialize requested (port={portName}).");
 
 #if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
         try
@@ -134,14 +164,36 @@ public class MotorController : MonoBehaviour
         SendCommand(MotorCommandPacket.CreatePowerOffPacket());
     }
 
+    public void SendRawHex(string hex)
+    {
+        if (!TryParseHex(hex, out byte[] bytes))
+        {
+            Debug.LogWarning("[IOT][Motor] Raw hex invalid; send aborted.");
+            return;
+        }
+
+        SendBytes(bytes);
+    }
+
     public void SendSpringMode(ushort baseForce, ushort pullLimit, byte distance)
     {
-        SendCommand(MotorCommandPacket.CreateSpringModePacket(baseForce, pullLimit, distance));
+        SendCommand(MotorCommandPacket.CreateSpringModePacket(baseForce, pullLimit, distance, springModeCode, springSpeedCoeff));
     }
 
     public void SendSpringModeWithClear(ushort baseForce, ushort pullLimit, byte distance, byte clearFlag)
     {
-        SendCommand(MotorCommandPacket.CreateSpringModePacket(baseForce, pullLimit, distance, clearFlag));
+        SendCommand(MotorCommandPacket.CreateSpringModePacket(baseForce, pullLimit, distance, springModeCode, springSpeedCoeff, clearFlag));
+    }
+
+    public void ApplySpringSettings()
+    {
+        if (!initialized)
+            return;
+
+        if (clearPullCountOnInit)
+            SendSpringModeWithClear(springBaseForce, springPullLimit, springDistance, pullCountClearFlag);
+        else
+            SendSpringMode(springBaseForce, springPullLimit, springDistance);
     }
 
     public int GetMotorScore()
@@ -150,6 +202,27 @@ public class MotorController : MonoBehaviour
             return disconnectedMotorScore;
 
         return Mathf.Max(0, Mathf.RoundToInt(motorForceKg));
+    }
+
+    public void BeginForceWindow()
+    {
+        isTracking = true;
+        trackingStartTime = Time.time;
+        lastTrackingTime = Time.time;
+        accumulatedForce = 0f;
+    }
+
+    public int EndForceWindow()
+    {
+        if (!isTracking)
+            return 0;
+
+        UpdateTracking();
+        isTracking = false;
+
+        int score = Mathf.Max(0, Mathf.RoundToInt(accumulatedForce));
+        accumulatedForce = 0f;
+        return score;
     }
 
     public int GetPullCount()
@@ -202,6 +275,20 @@ public class MotorController : MonoBehaviour
 #endif
     }
 
+    private void UpdateTracking()
+    {
+        if (!isTracking)
+            return;
+
+        float now = Time.time;
+        float delta = now - lastTrackingTime;
+        if (delta <= 0f)
+            return;
+
+        accumulatedForce += motorForceKg * delta;
+        lastTrackingTime = now;
+    }
+
     private void ParseStatusFrames()
     {
         while (receiveBuffer.Count >= StatusFrameLength)
@@ -233,6 +320,9 @@ public class MotorController : MonoBehaviour
 
     private void ApplyStatusFrame(byte[] frame)
     {
+        if (logRawRx)
+            Debug.Log($"[IOT][Motor] RX: {ToHex(frame)}");
+
         float forceKg = (frame[3] << 8) | frame[4];
 
         int speedRaw = (frame[5] << 8) | frame[6];
@@ -250,24 +340,87 @@ public class MotorController : MonoBehaviour
         motorDistanceCm = distanceRaw;
         motorPullCount = countRaw;
         lastReceiveTime = Time.time;
+
+        if (logDecodedStatus)
+            Debug.Log($"[IOT][Motor] Status force={motorForceKg} speed={motorSpeedCmPerSec} dist={motorDistanceCm} count={motorPullCount}");
     }
 
     private void SendCommand(MotorCommandPacket packet)
     {
 #if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
-        if (!initialized || serialPort == null || !serialPort.IsOpen)
-            return;
-
         try
         {
             byte[] bytes = packet.GetBytes();
-            serialPort.Write(bytes, 0, bytes.Length);
+            SendBytes(bytes);
         }
         catch (Exception ex)
         {
             Debug.LogWarning($"[IOT][Motor] Send failed: {ex.Message}");
         }
 #endif
+    }
+
+    private void SendBytes(byte[] bytes)
+    {
+#if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
+        if (!initialized || serialPort == null || !serialPort.IsOpen)
+            return;
+
+        if (bytes == null || bytes.Length == 0)
+            return;
+
+        if (logRawTx)
+            Debug.Log($"[IOT][Motor] TX: {ToHex(bytes)}");
+
+        serialPort.Write(bytes, 0, bytes.Length);
+#endif
+    }
+
+    private static bool TryParseHex(string hex, out byte[] bytes)
+    {
+        bytes = null;
+        if (string.IsNullOrWhiteSpace(hex))
+            return false;
+
+        string cleaned = hex.Replace(" ", string.Empty)
+            .Replace("\t", string.Empty)
+            .Replace("\r", string.Empty)
+            .Replace("\n", string.Empty);
+
+        if (cleaned.Length % 2 != 0)
+            return false;
+
+        bytes = new byte[cleaned.Length / 2];
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            string token = cleaned.Substring(i * 2, 2);
+            if (!byte.TryParse(token, System.Globalization.NumberStyles.HexNumber, null, out bytes[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static string ToHex(byte[] data)
+    {
+        if (data == null || data.Length == 0)
+            return string.Empty;
+
+        string[] parts = new string[data.Length];
+        for (int i = 0; i < data.Length; i++)
+            parts[i] = data[i].ToString("X2");
+
+        return string.Join(" ", parts);
+    }
+
+    private void LoadSettingsFromPrefs()
+    {
+        if (PlayerPrefs.HasKey(PrefBaseForce))
+            springBaseForce = (ushort)Mathf.Clamp(PlayerPrefs.GetInt(PrefBaseForce), 0, 1000);
+        if (PlayerPrefs.HasKey(PrefPullLimit))
+            springPullLimit = (ushort)Mathf.Clamp(PlayerPrefs.GetInt(PrefPullLimit), 0, 1000);
+        if (PlayerPrefs.HasKey(PrefDistance))
+            springDistance = (byte)Mathf.Clamp(PlayerPrefs.GetInt(PrefDistance), 0, 255);
     }
 
     void OnDestroy()
@@ -305,26 +458,26 @@ public class MotorController : MonoBehaviour
             return cmd;
         }
 
-        public static MotorCommandPacket CreateSpringModePacket(ushort baseForce, ushort pullLimit, byte distance)
+        public static MotorCommandPacket CreateSpringModePacket(ushort baseForce, ushort pullLimit, byte distance, byte modeCode, byte speedCoeff)
         {
             var cmd = new MotorCommandPacket();
             cmd.packet[1] = DefaultTargetMotor1;
             cmd.packet[2] = 0x01;
-            cmd.packet[3] = 0x02;
+            cmd.packet[3] = modeCode;
 
             cmd.packet[4] = (byte)(baseForce >> 8);
             cmd.packet[5] = (byte)(baseForce & 0xFF);
             cmd.packet[6] = (byte)(pullLimit >> 8);
             cmd.packet[7] = (byte)(pullLimit & 0xFF);
-            cmd.packet[8] = 100;
+            cmd.packet[8] = (byte)Mathf.Clamp(speedCoeff, 0, 255);
             cmd.packet[9] = distance;
 
             return cmd;
         }
 
-        public static MotorCommandPacket CreateSpringModePacket(ushort baseForce, ushort pullLimit, byte distance, byte pullCountClearFlag)
+        public static MotorCommandPacket CreateSpringModePacket(ushort baseForce, ushort pullLimit, byte distance, byte modeCode, byte speedCoeff, byte pullCountClearFlag)
         {
-            var cmd = CreateSpringModePacket(baseForce, pullLimit, distance);
+            var cmd = CreateSpringModePacket(baseForce, pullLimit, distance, modeCode, speedCoeff);
             cmd.packet[11] = pullCountClearFlag;
             return cmd;
         }

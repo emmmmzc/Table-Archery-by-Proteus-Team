@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using System.Collections;
 using UnityEngine.SceneManagement;
 
@@ -22,6 +23,7 @@ public class PlayerHealth : MonoBehaviour
     [Header("Lose UI")]
     public GameObject losePanel;
     public string menuSceneName = "menu";
+    public TMP_Text loseSummaryText;
 
     [Header("Legacy Fallback")]
     public Image gameOverImage;
@@ -29,6 +31,10 @@ public class PlayerHealth : MonoBehaviour
 
     [Header("Input")]
     public PlayerInputHandler inputHandler;
+
+    [Header("Audio")]
+    public AudioClip playerDamageSound;
+    public AudioClip playerDeathSound;
 
     private bool isDead = false;
 
@@ -68,8 +74,10 @@ public class PlayerHealth : MonoBehaviour
 
         currentHealth -= amount;
         currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+
         UpdateHeartsUI();
         TriggerRedFlash();
+        AudioManager.Instance.Play("PlayerDamage");
 
         if (currentHealth <= 0)
             Die();
@@ -121,9 +129,16 @@ public class PlayerHealth : MonoBehaviour
     {
         isDead = true;
         Debug.Log("Player died - YOU SUCK!");
+        AudioManager.Instance.Play("PlayerDeath");
 
         if (losePanel != null)
         {
+            FitnessManager fitnessManager = FindAnyObjectByType<FitnessManager>();
+            if (fitnessManager != null && loseSummaryText != null)
+            {
+                FitnessSessionResult session = fitnessManager.GetSessionResult();
+                loseSummaryText.text = $"Score: {session.sessionScore}\nHits: {session.sessionHitCount}\nPulls: {session.sessionPullCount}";
+            }
             losePanel.SetActive(true);
             Time.timeScale = 0f;
         }

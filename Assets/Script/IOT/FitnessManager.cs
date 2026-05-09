@@ -71,24 +71,9 @@ public class FitnessManager : MonoBehaviour
         ApplyLifetimeToPublic();
     }
 
-    public FitnessHitResult OnHit()
+    public FitnessHitResult OnHit(int motorScore)
     {
-        int motorScore = 0;
         int imuScore = 0;
-        int pullCount = 0;
-
-        if (useRealMotor)
-        {
-            if (motorController != null)
-            {
-                motorScore = motorController.GetMotorScore();
-                pullCount = motorController.GetPullCount();
-            }
-        }
-        else
-        {
-            motorScore = defaultMotorScore;
-        }
 
         if (useImuScore)
             imuScore = GetImuScore();
@@ -98,15 +83,16 @@ public class FitnessManager : MonoBehaviour
         string grade = isExcellent ? "Excellent" : "Miss";
 
         sessionScore += totalScore;
-        sessionHitCount += 1;
-        sessionPullCount = pullCount;
+        sessionPullCount += 1;
+        if (isExcellent)
+            sessionHitCount += 1;
 
         return new FitnessHitResult
         {
             motorScore = motorScore,
             imuScore = imuScore,
             totalScore = totalScore,
-            pullCount = pullCount,
+            pullCount = sessionPullCount,
             grade = grade,
             isExcellent = isExcellent
         };
