@@ -1,0 +1,228 @@
+using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
+
+public class IMUFirstPersonTestController : MonoBehaviour
+{
+    public enum ImuAxis
+    {
+        X,
+        Y,
+        Z
+    }
+
+    [Header("References")]
+    public IMUReceiver imuReceiver;
+    public Camera targetCamera;
+    public CharacterController characterController;
+
+    [Header("IMU Look")]
+    public bool useImuLook = true;
+    public float gyroSensitivity = 1f;
+    public float gyroDeadZone = 0.3f;
+    [Range(0f, 1f)] public float gyroSmoothing = 0.25f;
+    public ImuAxis yawAxis = ImuAxis.Y;
+    public ImuAxis pitchAxis = ImuAxis.X;
+    public ImuAxis rollAxis = ImuAxis.Z;
+    public float yawSign = 1f;
+    public float pitchSign = -1f;
+    public float rollSign = 1f;
+    public bool applyRollToCamera = false;
+    public float pitchLimit = 80f;
+    public float rollLimit = 45f;
+    public float maxPacketDeltaSeconds = 0.05f;
+
+    [Header("Keyboard Movement")]
+    public bool allowKeyboardMove = true;
+    public float moveSpeed = 3f;
+    public float sprintMultiplier = 2f;
+    public float gravity = -20f;
+
+    [Header("Debug")]
+    public bool logState;
+
+    private uint lastTimestampMs;
+    private bool hasLastTimestamp;
+    private float yaw;
+    private float pitch;
+    private float roll;
+    private float verticalVelocity;
+    private Vector3 filteredGyro;
+
+    void Start()
+    {
+        if (imuReceiver == null)
+            imuReceiver = FindAnyObjectByType<IMUReceiver>();
+        if (targetCamera == null)
+            targetCamera = GetComponentInChildren<Camera>();
+        if (characterController == null)
+            characterController = GetComponent<CharacterController>();
+
+        Vector3 angles = transform.eulerAngles;
+        yaw = angles.y;
+
+        if (targetCamera != null)
+        {
+            pitch = NormalizeAngle(targetCamera.transform.localEulerAngles.x);
+            roll = NormalizeAngle(targetCamera.transform.localEulerAngles.z);
+        }
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    void Update()
+    {
+        if (useImuLook)
+            UpdateImuLook();
+
+        if (allowKeyboardMove)
+            UpdateKeyboardMovement();
+
+        if (WasRecenterPressed())
+            Recenter();
+    }
+
+    private void UpdateImuLook()
+    {
+        if (imuReceiver == null || !imuReceiver.hasPacket)
+            return;
+
+        ImuPacket packet = imuReceiver.LatestPacket;
+        if (hasLastTimestamp && packet.timestampMs == lastTimestampMs)
+            return;
+
+        float deltaSeconds = GetPacketDeltaSeconds(packet.timestampMs);
+        lastTimestampMs = packet.timestampMs;
+        hasLastTimestamp = true;
+
+        Vector3 gyro = ApplyDeadZone(packet.gyroscope);
+        filteredGyro = Vector3.Lerp(filteredGyro, gyro, 1f - gyroSmoothing);
+        gyro = filteredGyro;
+
+        yaw += GetAxisValue(gyro, yawAxis) * gyroSensitivity * yawSign * deltaSeconds;
+        pitch += GetAxisValue(gyro, pitchAxis) * gyroSensitivity * pitchSign * deltaSeconds;
+        roll += GetAxisValue(gyro, rollAxis) * gyroSensitivity * rollSign * deltaSeconds;
+        pitch = Mathf.Clamp(pitch, -pitchLimit, pitchLimit);
+        roll = Mathf.Clamp(roll, -rollLimit, rollLimit);
+
+        transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+        if (targetCamera != null)
+        {
+            float cameraRoll = applyRollToCamera ? roll : 0f;
+            targetCamera.transform.localRotation = Quaternion.Euler(pitch, 0f, cameraRoll);
+        }
+
+        if (logState)
+            Debug.Log($"[IMU FPS] gyro={gyro} yaw={yaw:F1} pitch={pitch:F1} roll={roll:F1}");
+    }
+
+    private float GetPacketDeltaSeconds(uint timestampMs)
+    {
+        if (!hasLastTimestamp || timestampMs < lastTimestampMs)
+            return Time.deltaTime;
+
+        float delta = (timestampMs - lastTimestampMs) / 1000f;
+        if (delta <= 0f)
+            return Time.deltaTime;
+
+        return Mathf.Min(delta, maxPacketDeltaSeconds);
+    }
+
+    private Vector3 ApplyDeadZone(Vector3 value)
+    {
+        value.x = Mathf.Abs(value.x) < gyroDeadZone ? 0f : value.x;
+        value.y = Mathf.Abs(value.y) < gyroDeadZone ? 0f : value.y;
+        value.z = Mathf.Abs(value.z) < gyroDeadZone ? 0f : value.z;
+        return value;
+    }
+
+    private void UpdateKeyboardMovement()
+    {
+        if (characterController == null)
+            return;
+
+        Vector2 input = ReadMoveInput();
+        float speed = IsSprintHeld() ? moveSpeed * sprintMultiplier : moveSpeed;
+
+        Vector3 move = (transform.right * input.x + transform.forward * input.y) * speed;
+
+        if (characterController.isGrounded && verticalVelocity < 0f)
+            verticalVelocity = -1f;
+
+        verticalVelocity += gravity * Time.deltaTime;
+        move.y = verticalVelocity;
+
+        characterController.Move(move * Time.deltaTime);
+    }
+
+    public void Recenter()
+    {
+        yaw = transform.eulerAngles.y;
+        pitch = 0f;
+        roll = 0f;
+        filteredGyro = Vector3.zero;
+        hasLastTimestamp = false;
+
+        if (targetCamera != null)
+            targetCamera.transform.localRotation = Quaternion.identity;
+    }
+
+    private static float GetAxisValue(Vector3 value, ImuAxis axis)
+    {
+        switch (axis)
+        {
+            case ImuAxis.X:
+                return value.x;
+            case ImuAxis.Y:
+                return value.y;
+            case ImuAxis.Z:
+                return value.z;
+            default:
+                return 0f;
+        }
+    }
+
+    private static float NormalizeAngle(float angle)
+    {
+        while (angle > 180f)
+            angle -= 360f;
+        return angle;
+    }
+
+    private static Vector2 ReadMoveInput()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current == null)
+            return Vector2.zero;
+
+        Vector2 input = Vector2.zero;
+        if (Keyboard.current.aKey.isPressed) input.x -= 1f;
+        if (Keyboard.current.dKey.isPressed) input.x += 1f;
+        if (Keyboard.current.sKey.isPressed) input.y -= 1f;
+        if (Keyboard.current.wKey.isPressed) input.y += 1f;
+        return Vector2.ClampMagnitude(input, 1f);
+#else
+        return Vector2.ClampMagnitude(new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")), 1f);
+#endif
+    }
+
+    private static bool IsSprintHeld()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed;
+#else
+        return Input.GetKey(KeyCode.LeftShift);
+#endif
+    }
+
+    private static bool WasRecenterPressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame;
+#else
+        return Input.GetKeyDown(KeyCode.R);
+#endif
+    }
+}
