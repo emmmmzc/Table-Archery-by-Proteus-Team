@@ -54,6 +54,9 @@ public class BossAttackManager : MonoBehaviour
     // This method will be called by Animation Event (see Part 3)
     public void SpawnProjectileBurst()
     {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play("BossShoot");
+
         for (int i = 0; i < projectileCount; i++)
         {
             SpawnSingleProjectile();

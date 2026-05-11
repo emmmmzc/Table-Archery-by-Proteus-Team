@@ -20,10 +20,19 @@ public class MotorSettingsMenu : MonoBehaviour
 
     [Header("Behavior")]
     public bool autoSaveOnChange = false;
+    public bool forceDefaultsOnStart = true;
+
+    [Header("Defaults")]
+    public int defaultBaseForce = 300;
+    public int defaultPullLimit = 2000;
+    public int defaultDistance = 30;
 
     void Start()
     {
-        LoadToUI();
+        if (forceDefaultsOnStart)
+            ApplyDefaultsToUI();
+        else
+            LoadToUI();
     }
 
     public void OnBaseForceChanged(float value)
@@ -89,6 +98,29 @@ public class MotorSettingsMenu : MonoBehaviour
             distanceSlider.SetValueWithoutNotify(value);
             UpdateLabel(distanceText, value);
         }
+    }
+
+    private void ApplyDefaultsToUI()
+    {
+        if (baseForceSlider != null)
+        {
+            baseForceSlider.SetValueWithoutNotify(defaultBaseForce);
+            UpdateLabel(baseForceText, defaultBaseForce);
+        }
+
+        if (pullLimitSlider != null)
+        {
+            pullLimitSlider.SetValueWithoutNotify(defaultPullLimit);
+            UpdateLabel(pullLimitText, defaultPullLimit);
+        }
+
+        if (distanceSlider != null)
+        {
+            distanceSlider.SetValueWithoutNotify(defaultDistance);
+            UpdateLabel(distanceText, defaultDistance);
+        }
+
+        Save();
     }
 
     private void UpdateLabel(TMP_Text label, float value)

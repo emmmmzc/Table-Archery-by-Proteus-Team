@@ -490,11 +490,11 @@ MonoBehaviour:
   gyroSensitivity: 1
   gyroDeadZone: 0.3
   gyroSmoothing: 0.25
-  yawAxis: 1
-  pitchAxis: 0
+  yawAxis: 0
+  pitchAxis: 2
   rollAxis: 2
-  yawSign: 1
-  pitchSign: -1
+  yawSign: -1
+  pitchSign: 1
   rollSign: 1
   applyRollToCamera: 0
   pitchLimit: 80

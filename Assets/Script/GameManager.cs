@@ -24,6 +24,9 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayMusic("BGM");
+
         // Disable boss attack initially
         if (bossAttackManager != null)
             bossAttackManager.enabled = false;
@@ -115,6 +118,9 @@ public class GameManager : MonoBehaviour
 
     public void OnZombiesDefeated()
     {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play("Bossangry");
+
         // Play furious animation
         if (bossAnimator != null)
             bossAnimator.SetTrigger(furiousTrigger);

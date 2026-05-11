@@ -78,6 +78,21 @@ public class PlayerInputHandler : MonoBehaviour
         FireTriggered = false;
     }
 
+    public void ConsumeAim()
+    {
+        AimTriggered = false;
+    }
+
+    public void InjectFire()
+    {
+        FireTriggered = true;
+    }
+
+    public void InjectAim()
+    {
+        AimTriggered = true;
+    }
+
     private void OnEnable()
     {
         playerControls.FindActionMap(actionMapName).Enable();

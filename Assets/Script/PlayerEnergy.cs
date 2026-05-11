@@ -53,6 +53,8 @@ public class PlayerEnergy : MonoBehaviour
         if (isSpecialReady) return;
 
         currentEnergy += amount;
+        if (amount > 0)
+            AudioManager.Instance.Play("EnergyCollecting");
         if (currentEnergy >= maxEnergy)
         {
             currentEnergy = maxEnergy;

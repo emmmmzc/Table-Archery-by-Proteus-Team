@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -17,11 +18,9 @@ public class MotorController : MonoBehaviour
 
     [Header("Connection")]
     public string portName = "COM7";
-    public bool autoConnect = true;
     public float staleSeconds = 3f;
 
     [Header("Motor Config")]
-    public bool autoPowerOn = true;
     public ushort springBaseForce = 100;
     public ushort springPullLimit = 100;
     public byte springDistance = 150;
@@ -34,7 +33,19 @@ public class MotorController : MonoBehaviour
     public bool useRawCommands = true;
     public string powerOnRawHex = "640002AA00000000000000000000000000000000000000000000000000BD0D0A";
     public string powerOffRawHex = "6400025500000000000000000000000000000000000000000000000000590D0A";
-    public string defaultSpringRawHex = "6400010201F407D0640000000000000000000000000000000000000000030D0A";
+    public string defaultSpringRawHex = "64000102012C07D0641E00000000000000000000000000000000000000470D0A";
+    public string releaseProtectionRawHex = "6400A00105050000000000000000000000000000000000000000000000C50D0A";
+    // public string clearPullCountRawHex = "";
+
+    [Header("Startup Delay")]
+    public float powerOnDelaySeconds = 0.2f;
+    public float defaultModeDelaySeconds = 0.1f;
+
+    [Header("Motor Trigger Input")]
+    public bool useMotorDistanceTrigger = true;
+    public float motorChargeStartDistance = 80f;
+    public float motorFireReleaseDistance = 25f;
+    public PlayerInputHandler inputHandler;
 
     [Header("Scoring")]
     public int disconnectedMotorScore = 20;
@@ -56,6 +67,7 @@ public class MotorController : MonoBehaviour
     private float motorSpeedCmPerSec;
     private float motorDistanceCm;
     private int motorPullCount;
+    private bool motorChargeReady;
 
     private bool isTracking;
     private float trackingStartTime;
@@ -67,14 +79,12 @@ public class MotorController : MonoBehaviour
     public float MotorDistanceCm => motorDistanceCm;
     public int MotorPullCount => motorPullCount;
 
+    /* ----------------------------- Lifecycle ----------------------------- */
     void Start()
     {
         if (logLifecycle)
-            Debug.Log($"[IOT][Motor] Start on {gameObject.name} (autoConnect={autoConnect}, port={portName})");
-        if (autoConnect)
-            Initialize(portName);
-        else if (logLifecycle)
-            Debug.Log("[IOT][Motor] Auto-connect disabled; call Initialize() manually.");
+            Debug.Log($"[IOT][Motor] Start on {gameObject.name} (port={portName})");
+        Initialize(portName);
     }
 
     void Update()
@@ -83,6 +93,7 @@ public class MotorController : MonoBehaviour
         UpdateTracking();
     }
 
+    /* ---------------------------- Connection ----------------------------- */
     public void Initialize(string port)
     {
         if (initialized)
@@ -111,22 +122,8 @@ public class MotorController : MonoBehaviour
             lastReceiveTime = 0f;
             Debug.Log($"[IOT][Motor] Connected: {portName} @ {FixedBaudRate}");
 
-            if (autoPowerOn)
-            {
-                SendPowerOn();
-                if (useRawCommands && !string.IsNullOrWhiteSpace(defaultSpringRawHex))
-                {
-                    SendRawHex(defaultSpringRawHex);
-                }
-                else if (clearPullCountOnInit)
-                {
-                    SendSpringModeWithClear(springBaseForce, springPullLimit, springDistance, pullCountClearFlag);
-                }
-                else
-                {
-                    SendSpringMode(springBaseForce, springPullLimit, springDistance);
-                }
-            }
+            StartCoroutine(SendStartupSequence());
+                
         }
         catch (Exception ex)
         {
@@ -164,26 +161,27 @@ public class MotorController : MonoBehaviour
 #endif
     }
 
+    /* ------------------------------ Commands ----------------------------- */
     public void SendPowerOn()
     {
-        if (useRawCommands && !string.IsNullOrWhiteSpace(powerOnRawHex))
+        if (string.IsNullOrWhiteSpace(powerOnRawHex))
         {
-            SendRawHex(powerOnRawHex);
+            Debug.LogWarning("[IOT][Motor] powerOnRawHex is empty; send aborted.");
             return;
         }
 
-        SendCommand(MotorCommandPacket.CreatePowerOnPacket());
+        SendRawHex(powerOnRawHex);
     }
 
     public void SendPowerOff()
     {
-        if (useRawCommands && !string.IsNullOrWhiteSpace(powerOffRawHex))
+        if (string.IsNullOrWhiteSpace(powerOffRawHex))
         {
-            SendRawHex(powerOffRawHex);
+            Debug.LogWarning("[IOT][Motor] powerOffRawHex is empty; send aborted.");
             return;
         }
 
-        SendCommand(MotorCommandPacket.CreatePowerOffPacket());
+        SendRawHex(powerOffRawHex);
     }
 
     public void SendRawHex(string hex)
@@ -218,6 +216,7 @@ public class MotorController : MonoBehaviour
             SendSpringMode(springBaseForce, springPullLimit, springDistance);
     }
 
+    /* ------------------------- Scoring & Tracking ------------------------ */
     public int GetMotorScore()
     {
         if (!IsConnected())
@@ -252,6 +251,7 @@ public class MotorController : MonoBehaviour
         return motorPullCount;
     }
 
+    /* ---------------------------- Serial RX ------------------------------ */
     private bool IsConnected()
     {
         if (!initialized)
@@ -365,8 +365,53 @@ public class MotorController : MonoBehaviour
 
         if (logDecodedStatus)
             Debug.Log($"[IOT][Motor] Status force={motorForceKg} speed={motorSpeedCmPerSec} dist={motorDistanceCm} count={motorPullCount}");
+
+        UpdateMotorInputTriggers();
     }
 
+    /* -------------------------- Motor -> Input --------------------------- */
+    private void UpdateMotorInputTriggers()
+    {
+        if (!useMotorDistanceTrigger)
+            return;
+
+        if (inputHandler == null)
+            inputHandler = FindAnyObjectByType<PlayerInputHandler>();
+
+        if (inputHandler == null)
+            return;
+
+        if (!motorChargeReady && motorDistanceCm >= motorChargeStartDistance)
+        {
+            motorChargeReady = true;
+            inputHandler.InjectAim();
+        }
+        else if (motorChargeReady && motorDistanceCm <= motorFireReleaseDistance)
+        {
+            motorChargeReady = false;
+            // Drive the same trigger path as the mouse input.
+            inputHandler.InjectFire();
+        }
+    }
+
+    private IEnumerator SendStartupSequence()
+    {
+        if (powerOnDelaySeconds > 0f)
+            yield return new WaitForSeconds(powerOnDelaySeconds);
+
+        SendPowerOn();
+
+        if (defaultModeDelaySeconds > 0f)
+            yield return new WaitForSeconds(defaultModeDelaySeconds);
+
+        if (!string.IsNullOrWhiteSpace(defaultSpringRawHex))
+            SendRawHex(defaultSpringRawHex);
+
+        if (!string.IsNullOrWhiteSpace(releaseProtectionRawHex))
+            SendRawHex(releaseProtectionRawHex);
+    }
+
+    /* ------------------------------ Helpers ------------------------------ */
     private void SendCommand(MotorCommandPacket packet)
     {
 #if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
@@ -440,6 +485,7 @@ public class MotorController : MonoBehaviour
         Shutdown();
     }
 
+    /* --------------------------- Packet Builder -------------------------- */
     private class MotorCommandPacket
     {
         private const byte DefaultTargetMotor1 = 0x00;

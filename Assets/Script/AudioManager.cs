@@ -18,7 +18,9 @@ public class AudioManager : MonoBehaviour
     [SerializeField] private Sound[] sounds;
 
     private readonly Dictionary<string, Sound> soundLookup = new Dictionary<string, Sound>(StringComparer.Ordinal);
-    private AudioSource audioSource;
+    private AudioSource sfxSource;
+    private AudioSource musicSource;
+    private string currentMusicName;
 
     private void Awake()
     {
@@ -31,9 +33,14 @@ public class AudioManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        audioSource = GetComponent<AudioSource>();
-        if (audioSource == null)
-            audioSource = gameObject.AddComponent<AudioSource>();
+        sfxSource = GetComponent<AudioSource>();
+        if (sfxSource == null)
+            sfxSource = gameObject.AddComponent<AudioSource>();
+        sfxSource.playOnAwake = false;
+
+        musicSource = gameObject.AddComponent<AudioSource>();
+        musicSource.playOnAwake = false;
+        musicSource.loop = true;
 
         BuildLookup();
     }
@@ -57,6 +64,40 @@ public class AudioManager : MonoBehaviour
         if (string.IsNullOrEmpty(soundName)) return;
         if (!soundLookup.TryGetValue(soundName, out Sound sound)) return;
 
-        audioSource.PlayOneShot(sound.clip, sound.volume);
+        sfxSource.PlayOneShot(sound.clip, sound.volume);
+    }
+
+    public bool TryGetSound(string soundName, out AudioClip clip, out float volume)
+    {
+        clip = null;
+        volume = 1f;
+
+        if (string.IsNullOrEmpty(soundName)) return false;
+        if (!soundLookup.TryGetValue(soundName, out Sound sound)) return false;
+        if (sound.clip == null) return false;
+
+        clip = sound.clip;
+        volume = sound.volume;
+        return true;
+    }
+
+    public void PlayMusic(string soundName)
+    {
+        if (string.IsNullOrEmpty(soundName)) return;
+        if (!soundLookup.TryGetValue(soundName, out Sound sound)) return;
+
+        if (currentMusicName == sound.name && musicSource.isPlaying) return;
+
+        currentMusicName = sound.name;
+        musicSource.clip = sound.clip;
+        musicSource.volume = sound.volume;
+        musicSource.loop = true;
+        musicSource.Play();
+    }
+
+    public void StopMusic()
+    {
+        if (musicSource.isPlaying)
+            musicSource.Stop();
     }
 }

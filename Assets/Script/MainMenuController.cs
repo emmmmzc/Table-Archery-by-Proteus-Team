@@ -11,6 +11,9 @@ public class MainMenuController : MonoBehaviour
 
     private void Start()
     {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayMusic("BGM");
+
         if (infoPanel != null)
             infoPanel.SetActive(false);
 
@@ -39,6 +42,10 @@ public class MainMenuController : MonoBehaviour
 
     public void ExitGame()
     {
+        MotorController motorController = FindAnyObjectByType<MotorController>();
+        if (motorController != null)
+            motorController.SendPowerOff();
+
         Application.Quit();
     }
 }

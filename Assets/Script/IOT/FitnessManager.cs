@@ -59,6 +59,7 @@ public class FitnessManager : MonoBehaviour
         public int totalPulls;
     }
 
+    /* ----------------------------- Lifecycle ----------------------------- */
     void Awake()
     {
         if (Instance == null)
@@ -71,6 +72,7 @@ public class FitnessManager : MonoBehaviour
         ApplyLifetimeToPublic();
     }
 
+    /* ------------------------------ Scoring ------------------------------ */
     public FitnessHitResult OnHit(int motorScore)
     {
         int imuScore = 0;
@@ -78,6 +80,7 @@ public class FitnessManager : MonoBehaviour
         if (useImuScore)
             imuScore = GetImuScore();
 
+        // Combine motor + IMU, then compare with passGrade.
         int totalScore = motorScore + imuScore;
         bool isExcellent = totalScore >= passGrade;
         string grade = isExcellent ? "Excellent" : "Miss";
@@ -98,6 +101,7 @@ public class FitnessManager : MonoBehaviour
         };
     }
 
+    /* --------------------------- Session Summary ------------------------- */
     public FitnessSessionResult GetSessionResult()
     {
         return new FitnessSessionResult
@@ -108,11 +112,12 @@ public class FitnessManager : MonoBehaviour
         };
     }
 
+    /* ------------------------------ Lifetime ----------------------------- */
     public void CommitSessionToLifetime()
     {
         lifetime.totalScore += sessionScore;
         lifetime.totalHits += sessionHitCount;
-        lifetime.totalPulls = sessionPullCount;
+        lifetime.totalPulls += sessionPullCount;
 
         SaveLifetime();
         ApplyLifetimeToPublic();
@@ -126,11 +131,13 @@ public class FitnessManager : MonoBehaviour
         sessionPullCount = 0;
     }
 
+    /* ------------------------------- IMU --------------------------------- */
     private int GetImuScore()
     {
         return imuScoreOverride;
     }
 
+    /* ------------------------------ Storage ------------------------------ */
     private void LoadLifetime()
     {
         if (!File.Exists(jsonPath))
