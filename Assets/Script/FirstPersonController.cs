@@ -17,14 +17,14 @@ public class FirstPersonController : MonoBehaviour
 
     [Header("Fire Parameters")]
     [SerializeField] private float fireForce = 5.0f;
+    [SerializeField] private bool requireExcellentToFire = false;
 
     [Header("Bow Visuals")]
     [SerializeField] private Animator bowAnimator;
-    [SerializeField] private Transform nockedArrow;
-    [SerializeField] private string bowDrawStateName = "BowArmature|Shot";
-    [SerializeField] private Vector3 arrowDrawLocalOffset = new Vector3(0f, 0f, -0.25f);
-    [SerializeField] private float arrowDrawDuration = 0.25f;
-    [SerializeField] private float arrowReloadDelay = 0.35f;
+    [SerializeField] private string bowAimTriggerName = "shoot";
+    [SerializeField] private string bowFireTriggerName = "fire";
+    [SerializeField] private string bowShotFallbackStateName = "BowArmature|Shot";
+    [SerializeField] private float bowResetDelay = 0.35f;
     [SerializeField] private bool autoFindBowVisuals = true;
 
     [Header("Aim Mode")]
@@ -47,10 +47,7 @@ public class FirstPersonController : MonoBehaviour
 
     private Vector3 currentMovement;
     private float verticalRotation;
-    private Vector3 nockedArrowIdlePosition;
-    private Quaternion nockedArrowIdleRotation;
-    private Coroutine arrowVisualRoutine;
-    private bool hasNockedArrowIdleTransform;
+    private Coroutine bowResetRoutine;
     private float CurrentSpeed => walkSpeed * (playerInputHandler.SprintTriggered ? sprintMultiplier : 1.0f);
 
 
@@ -73,7 +70,6 @@ public class FirstPersonController : MonoBehaviour
             motorController = FindAnyObjectByType<MotorController>();
 
         ResolveBowVisualReferences();
-        CacheNockedArrowIdleTransform();
     }
 
     // Update is called once per frame
@@ -186,14 +182,19 @@ public class FirstPersonController : MonoBehaviour
 
             if (!hitResult.isExcellent)
             {
-                isAiming = false;
-                targetFOV = normalFOV;
-                if (crosshairUI != null) crosshairUI.SetActive(false);
-                CancelBowDrawVisual();
-                if (playerInputHandler != null)
-                    playerInputHandler.ConsumeFire();
-                return;
+                if (requireExcellentToFire)
+                {
+                    isAiming = false;
+                    targetFOV = normalFOV;
+                    if (crosshairUI != null) crosshairUI.SetActive(false);
+                    CancelBowDrawVisual();
+                    if (playerInputHandler != null)
+                        playerInputHandler.ConsumeFire();
+                    return;
+                }
             }
+
+            FireBowVisual();
 
             // Spawn projectile (same code you already have)
             Vector3 spawnPosition = mainCamera.transform.position + mainCamera.transform.forward * 0.5f;
@@ -202,7 +203,7 @@ public class FirstPersonController : MonoBehaviour
             Rigidbody rb = projectile.GetComponent<Rigidbody>();
             if (rb != null) rb.AddForce(mainCamera.transform.forward * fireForce, ForceMode.Impulse);
             Destroy(projectile, 5f);
-            ReleaseBowArrowVisual();
+            ResetBowVisualAfterDelay();
 
             // Exit aim mode after shooting
             isAiming = false;
@@ -251,113 +252,75 @@ public class FirstPersonController : MonoBehaviour
                 }
             }
 
-            if (nockedArrow == null)
-            {
-                Transform[] children = searchRoot.GetComponentsInChildren<Transform>(true);
-                foreach (Transform child in children)
-                {
-                    if (child.name.Contains("Arrow"))
-                    {
-                        nockedArrow = child;
-                        break;
-                    }
-                }
-            }
-
-            if (bowAnimator != null && nockedArrow != null)
+            if (bowAnimator != null)
                 return;
         }
     }
 
-    private void CacheNockedArrowIdleTransform()
-    {
-        if (nockedArrow == null || hasNockedArrowIdleTransform)
-            return;
-
-        nockedArrowIdlePosition = nockedArrow.localPosition;
-        nockedArrowIdleRotation = nockedArrow.localRotation;
-        hasNockedArrowIdleTransform = true;
-    }
-
     private void BeginBowDrawVisual()
     {
-        CacheNockedArrowIdleTransform();
-
-        if (bowAnimator != null && !string.IsNullOrEmpty(bowDrawStateName))
-        {
-            bowAnimator.speed = 1f;
-            bowAnimator.Play(bowDrawStateName, 0, 0f);
-        }
-
-        if (nockedArrow == null)
+        if (bowAnimator == null)
             return;
 
-        nockedArrow.gameObject.SetActive(true);
-        StartArrowVisualRoutine(MoveNockedArrow(nockedArrowIdlePosition + arrowDrawLocalOffset, arrowDrawDuration));
+        if (bowResetRoutine != null)
+            StopCoroutine(bowResetRoutine);
+
+        bowAnimator.speed = 1f;
+        SetAnimatorTriggerIfExists(bowAnimator, bowAimTriggerName);
+    }
+
+    private void FireBowVisual()
+    {
+        if (bowAnimator == null)
+            return;
+
+        if (!SetAnimatorTriggerIfExists(bowAnimator, bowFireTriggerName) &&
+            !string.IsNullOrEmpty(bowShotFallbackStateName))
+            bowAnimator.Play(bowShotFallbackStateName, 0, 0f);
     }
 
     private void CancelBowDrawVisual()
     {
         if (bowAnimator != null)
             bowAnimator.Rebind();
+    }
 
-        if (nockedArrow == null)
+    private void ResetBowVisualAfterDelay()
+    {
+        if (bowAnimator == null)
             return;
 
-        nockedArrow.gameObject.SetActive(true);
-        StartArrowVisualRoutine(MoveNockedArrow(nockedArrowIdlePosition, arrowDrawDuration));
+        if (bowResetRoutine != null)
+            StopCoroutine(bowResetRoutine);
+
+        bowResetRoutine = StartCoroutine(ResetBowVisualRoutine());
     }
 
-    private void ReleaseBowArrowVisual()
+    private System.Collections.IEnumerator ResetBowVisualRoutine()
     {
-        if (nockedArrow == null)
-            return;
-
-        StartArrowVisualRoutine(ReloadNockedArrow());
-    }
-
-    private void StartArrowVisualRoutine(System.Collections.IEnumerator routine)
-    {
-        if (arrowVisualRoutine != null)
-            StopCoroutine(arrowVisualRoutine);
-
-        arrowVisualRoutine = StartCoroutine(routine);
-    }
-
-    private System.Collections.IEnumerator MoveNockedArrow(Vector3 targetLocalPosition, float duration)
-    {
-        if (nockedArrow == null)
-            yield break;
-
-        Vector3 startPosition = nockedArrow.localPosition;
-        Quaternion startRotation = nockedArrow.localRotation;
-        float elapsed = 0f;
-        duration = Mathf.Max(0.01f, duration);
-
-        while (elapsed < duration)
-        {
-            float t = elapsed / duration;
-            nockedArrow.localPosition = Vector3.Lerp(startPosition, targetLocalPosition, t);
-            nockedArrow.localRotation = Quaternion.Slerp(startRotation, nockedArrowIdleRotation, t);
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        nockedArrow.localPosition = targetLocalPosition;
-        nockedArrow.localRotation = nockedArrowIdleRotation;
-    }
-
-    private System.Collections.IEnumerator ReloadNockedArrow()
-    {
-        nockedArrow.gameObject.SetActive(false);
-        yield return new WaitForSeconds(arrowReloadDelay);
+        yield return new WaitForSeconds(bowResetDelay);
 
         if (bowAnimator != null)
             bowAnimator.Rebind();
 
-        nockedArrow.localPosition = nockedArrowIdlePosition;
-        nockedArrow.localRotation = nockedArrowIdleRotation;
-        nockedArrow.gameObject.SetActive(true);
-        arrowVisualRoutine = null;
+        bowResetRoutine = null;
+    }
+
+    private static bool SetAnimatorTriggerIfExists(Animator animator, string triggerName)
+    {
+        if (animator == null || string.IsNullOrEmpty(triggerName))
+            return false;
+
+        foreach (AnimatorControllerParameter parameter in animator.parameters)
+        {
+            if (parameter.type == AnimatorControllerParameterType.Trigger && parameter.name == triggerName)
+            {
+                animator.ResetTrigger(triggerName);
+                animator.SetTrigger(triggerName);
+                return true;
+            }
+        }
+
+        return false;
     }
 }

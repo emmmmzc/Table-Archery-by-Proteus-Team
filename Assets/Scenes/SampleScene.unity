@@ -507,7 +507,10 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 8157566e3235e4c06b089dbba215ddc6, type: 3}
       insertIndex: -1
       addedObject: {fileID: 599037454}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 8157566e3235e4c06b089dbba215ddc6, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 625143881}
   m_SourcePrefab: {fileID: 100100000, guid: 8157566e3235e4c06b089dbba215ddc6, type: 3}
 --- !u!4 &177924851 stripped
 Transform:
@@ -1530,6 +1533,33 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: ac7365aa6b86f443380bf4ce7d2d4c60, type: 3}
   m_PrefabInstance: {fileID: 599037453}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &625143880 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 8157566e3235e4c06b089dbba215ddc6, type: 3}
+  m_PrefabInstance: {fileID: 177924850}
+  m_PrefabAsset: {fileID: 0}
+--- !u!95 &625143881
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 625143880}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 2e29de5d550424f3d97c3dff906e602f, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &652234369 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4600133672953847389, guid: 023da222b1ec22a41b21743677f8084d, type: 3}
@@ -1579,7 +1609,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d27e54baa1936c2448810813beb10cc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MotorController
-  portName: COM7
+  portName: COM18
   staleSeconds: 3
   springBaseForce: 50
   springPullLimit: 100
@@ -1596,8 +1626,8 @@ MonoBehaviour:
   powerOnDelaySeconds: 0.2
   defaultModeDelaySeconds: 0.1
   useMotorDistanceTrigger: 1
-  motorChargeStartDistance: 40
-  motorFireReleaseDistance: 20
+  motorChargeStartDistance: 30
+  motorFireReleaseDistance: 30
   inputHandler: {fileID: 0}
   disconnectedMotorScore: 20
   logLifecycle: 1
@@ -2691,12 +2721,9 @@ MonoBehaviour:
   upDownLookRange: 100
   useMouseLook: 1
   fireForce: 50
-  bowAnimator: {fileID: 0}
-  nockedArrow: {fileID: 0}
+  bowAnimator: {fileID: 625143881}
   bowDrawStateName: BowArmature|Shot
-  arrowDrawLocalOffset: {x: 0, y: 0, z: -0.25}
-  arrowDrawDuration: 0.25
-  arrowReloadDelay: 0.35
+  bowResetDelay: 0.35
   autoFindBowVisuals: 1
   zoomFOV: 20
   normalFOV: 70
@@ -2876,7 +2903,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FitnessManager
   motorController: {fileID: 701934993}
   passGrade: 60
-  useRealMotor: 0
+  useRealMotor: 1
   defaultMotorScore: 80
   useImuScore: 0
   imuScoreOverride: 0
