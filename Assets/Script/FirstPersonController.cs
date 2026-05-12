@@ -13,6 +13,7 @@ public class FirstPersonController : MonoBehaviour
     [Header("Look Parameters")]
     [SerializeField] private float mouseSensitivity = 0.3f;
     [SerializeField] private float upDownLookRange = 100.0f;
+    [SerializeField] private bool useMouseLook = true;
 
     [Header("Fire Parameters")]
     [SerializeField] private float fireForce = 5.0f;
@@ -63,7 +64,8 @@ public class FirstPersonController : MonoBehaviour
     void Update()
     {
         HandleMovement();
-        HandleRotation(); 
+        if (useMouseLook)
+            HandleRotation(); 
         HandleAiming();
         HandleShooting();
         UpdateCameraZoom();

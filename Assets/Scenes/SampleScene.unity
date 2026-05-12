@@ -1741,6 +1741,59 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &932663658
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 932663660}
+  - component: {fileID: 932663659}
+  m_Layer: 0
+  m_Name: IMUreceiver
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &932663659
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 932663658}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 502ad78abb3b0ce4a8a5ed7a734fc4e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IMUReceiver
+  listenPort: 5005
+  startOnAwake: 1
+  logPackets: 0
+  logErrors: 1
+  hasPacket: 0
+  timestampMs: 0
+  acceleration: {x: 0, y: 0, z: 0}
+  gyroscope: {x: 0, y: 0, z: 0}
+  lastPacketUnityTime: 0
+--- !u!4 &932663660
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 932663658}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 926.4542, y: 485.9948, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1024597788 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2145563792497325719, guid: 7b88a5518dadd044f960f792f8bff389, type: 3}
@@ -2459,6 +2512,7 @@ GameObject:
   - component: {fileID: 1626261871}
   - component: {fileID: 1626261874}
   - component: {fileID: 1626261875}
+  - component: {fileID: 1626261876}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -2484,6 +2538,7 @@ MonoBehaviour:
   gravityMultiplier: 1
   mouseSensitivity: 0.3
   upDownLookRange: 100
+  useMouseLook: 1
   fireForce: 50
   zoomFOV: 20
   normalFOV: 70
@@ -2597,6 +2652,40 @@ MonoBehaviour:
   specialAttackSound: {fileID: 0}
   excellentSound: {fileID: 0}
   missSound: {fileID: 0}
+--- !u!114 &1626261876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1626261870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d10f4225cef009246a37c6c4e3ed4dc9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IMUFirstPersonTestController
+  imuReceiver: {fileID: 932663659}
+  targetCamera: {fileID: 330585545}
+  characterController: {fileID: 1626261872}
+  useImuLook: 1
+  gyroSensitivity: 1
+  gyroDeadZone: 0.3
+  gyroSmoothing: 0.25
+  yawAxis: 0
+  pitchAxis: 2
+  rollAxis: 2
+  yawSign: 1
+  pitchSign: 1
+  rollSign: 1
+  applyRollToCamera: 0
+  pitchLimit: 80
+  rollLimit: 45
+  maxPacketDeltaSeconds: 0.05
+  allowKeyboardMove: 1
+  moveSpeed: 3
+  sprintMultiplier: 2
+  gravity: -20
+  logState: 0
 --- !u!1 &1696174449
 GameObject:
   m_ObjectHideFlags: 0
@@ -3759,3 +3848,4 @@ SceneRoots:
   - {fileID: 769070443}
   - {fileID: 701934992}
   - {fileID: 236236131}
+  - {fileID: 932663660}
