@@ -24,6 +24,8 @@ public class FirstPersonController : MonoBehaviour
     [SerializeField] private string bowAimTriggerName = "shoot";
     [SerializeField] private string bowFireTriggerName = "fire";
     [SerializeField] private string bowShotFallbackStateName = "BowArmature|Shot";
+    [SerializeField] private GameObject heldArrow;
+    [SerializeField] private float heldArrowReloadDelay = 1f;
     [SerializeField] private float bowResetDelay = 0.35f;
     [SerializeField] private bool autoFindBowVisuals = true;
 
@@ -48,6 +50,7 @@ public class FirstPersonController : MonoBehaviour
     private Vector3 currentMovement;
     private float verticalRotation;
     private Coroutine bowResetRoutine;
+    private Coroutine heldArrowReloadRoutine;
     private float CurrentSpeed => walkSpeed * (playerInputHandler.SprintTriggered ? sprintMultiplier : 1.0f);
 
 
@@ -203,6 +206,7 @@ public class FirstPersonController : MonoBehaviour
             Rigidbody rb = projectile.GetComponent<Rigidbody>();
             if (rb != null) rb.AddForce(mainCamera.transform.forward * fireForce, ForceMode.Impulse);
             Destroy(projectile, 5f);
+            HideHeldArrowThenReload();
             ResetBowVisualAfterDelay();
 
             // Exit aim mode after shooting
@@ -252,7 +256,10 @@ public class FirstPersonController : MonoBehaviour
                 }
             }
 
-            if (bowAnimator != null)
+            if (heldArrow == null)
+                heldArrow = FindHeldArrow(searchRoot);
+
+            if (bowAnimator != null && heldArrow != null)
                 return;
         }
     }
@@ -296,6 +303,17 @@ public class FirstPersonController : MonoBehaviour
         bowResetRoutine = StartCoroutine(ResetBowVisualRoutine());
     }
 
+    private void HideHeldArrowThenReload()
+    {
+        if (heldArrow == null)
+            return;
+
+        if (heldArrowReloadRoutine != null)
+            StopCoroutine(heldArrowReloadRoutine);
+
+        heldArrowReloadRoutine = StartCoroutine(HeldArrowReloadRoutine());
+    }
+
     private System.Collections.IEnumerator ResetBowVisualRoutine()
     {
         yield return new WaitForSeconds(bowResetDelay);
@@ -304,6 +322,17 @@ public class FirstPersonController : MonoBehaviour
             bowAnimator.Rebind();
 
         bowResetRoutine = null;
+    }
+
+    private System.Collections.IEnumerator HeldArrowReloadRoutine()
+    {
+        heldArrow.SetActive(false);
+        yield return new WaitForSeconds(heldArrowReloadDelay);
+
+        if (heldArrow != null)
+            heldArrow.SetActive(true);
+
+        heldArrowReloadRoutine = null;
     }
 
     private static bool SetAnimatorTriggerIfExists(Animator animator, string triggerName)
@@ -322,5 +351,17 @@ public class FirstPersonController : MonoBehaviour
         }
 
         return false;
+    }
+
+    private static GameObject FindHeldArrow(Transform searchRoot)
+    {
+        Transform[] children = searchRoot.GetComponentsInChildren<Transform>(true);
+        foreach (Transform child in children)
+        {
+            if (child.name.Contains("Arrow"))
+                return child.gameObject;
+        }
+
+        return null;
     }
 }
