@@ -57,7 +57,11 @@ public class PauseMenuController : MonoBehaviour
         isPaused = true;
         MotorController motorController = FindAnyObjectByType<MotorController>();
         if (motorController != null)
+        {
+            // Avoid ResumeAfterPauseRoutine() finishing after this and sending PowerOn again.
+            motorController.CancelResumeAfterPauseRoutine();
             motorController.SendPowerOff();
+        }
         Time.timeScale = 0f;
         if (pausePanel != null)
             pausePanel.SetActive(true);

@@ -35,7 +35,7 @@ public class MotorController : MonoBehaviour
     public string powerOnRawHex = "640002AA00000000000000000000000000000000000000000000000000BD0D0A";
     public string powerOffRawHex = "6400025500000000000000000000000000000000000000000000000000590D0A";
     public string defaultSpringRawHex = "64000102012C07D0641E00000000000000000000000000000000000000470D0A";
-    public string releaseProtectionRawHex = "6400A00102030000000000000000000000000000000000000000000000A70D0A";
+    public string releaseProtectionRawHex = "6400A00105050000000000000000000000000000000000000000000000C50D0A";
     // public string clearPullCountRawHex = "";
 
     [Header("Startup Delay")]
@@ -53,6 +53,9 @@ public class MotorController : MonoBehaviour
 
     [Header("Scoring")]
     public int disconnectedMotorScore = 20;
+    [Tooltip("Maps integrated work (force × speed × Δt) to score.")]
+    public float workToScoreMultiplier = 10f;
+    public int maxWorkScore = 800;
 
     [Header("Debug")]
     public bool logLifecycle = true;
@@ -75,10 +78,11 @@ public class MotorController : MonoBehaviour
 
     private bool isTracking;
     private float trackingStartTime;
-    private float accumulatedForce;
+    private float accumulatedWork;
     private float lastTrackingTime;
 
     private Coroutine enablePackageRoutine;
+    private Coroutine resumeAfterPauseRoutine;
 
     public float MotorForceKg => motorForceKg;
     public float MotorSpeedCmPerSec => motorSpeedCmPerSec;
@@ -224,14 +228,54 @@ public class MotorController : MonoBehaviour
             SendSpringMode(springBaseForce, springPullLimit, springDistance);
     }
 
+    /// <summary>
+    /// Stop delayed resume packets so they cannot fire after the player opens pause again (race with SendPowerOff).
+    /// </summary>
+    public void CancelResumeAfterPauseRoutine()
+    {
+        if (resumeAfterPauseRoutine == null)
+            return;
+
+        StopCoroutine(resumeAfterPauseRoutine);
+        resumeAfterPauseRoutine = null;
+    }
+
     public void ResumeAfterPause()
     {
         if (!initialized)
             return;
 
+        // Match SendStartupSequence timing: motor firmware often ignores back-to-back packets.
+        if (resumeAfterPauseRoutine != null)
+        {
+            StopCoroutine(resumeAfterPauseRoutine);
+            resumeAfterPauseRoutine = null;
+        }
+
+        resumeAfterPauseRoutine = StartCoroutine(ResumeAfterPauseRoutine());
+    }
+
+    private IEnumerator ResumeAfterPauseRoutine()
+    {
+        ReloadSettingsFromPrefs();
+
+        if (powerOnDelaySeconds > 0f)
+            yield return new WaitForSeconds(powerOnDelaySeconds);
+
         SendPowerOn();
+
+        if (defaultModeDelaySeconds > 0f)
+            yield return new WaitForSeconds(defaultModeDelaySeconds);
+
         SendSpringMode(springBaseForce, springPullLimit, springDistance);
-        SendRawHex(releaseProtectionRawHex);
+
+        if (!string.IsNullOrWhiteSpace(releaseProtectionRawHex))
+            SendRawHex(releaseProtectionRawHex);
+
+        // If startup sequence never ran this scene (e.g. scene name gate), keep-alive may never have started.
+        StartEnablePackageLoop();
+
+        resumeAfterPauseRoutine = null;
     }
 
     public void ReloadSettingsFromPrefs()
@@ -254,7 +298,7 @@ public class MotorController : MonoBehaviour
         isTracking = true;
         trackingStartTime = Time.time;
         lastTrackingTime = Time.time;
-        accumulatedForce = 0f;
+        accumulatedWork = 0f;
     }
 
     public int EndForceWindow()
@@ -265,9 +309,10 @@ public class MotorController : MonoBehaviour
         UpdateTracking();
         isTracking = false;
 
-        int score = Mathf.Max(0, Mathf.RoundToInt(accumulatedForce));
-        accumulatedForce = 0f;
-        return score;
+        int finalScore = Mathf.RoundToInt(accumulatedWork * workToScoreMultiplier);
+        finalScore = Mathf.Clamp(finalScore, 0, maxWorkScore);
+        accumulatedWork = 0f;
+        return finalScore;
     }
 
     public int GetPullCount()
@@ -327,12 +372,14 @@ public class MotorController : MonoBehaviour
             return;
 
         float now = Time.time;
-        float delta = now - lastTrackingTime;
-        if (delta <= 0f)
+        float deltaTime = now - lastTrackingTime;
+        lastTrackingTime = now;
+
+        if (deltaTime <= 0f)
             return;
 
-        accumulatedForce += motorForceKg * delta;
-        lastTrackingTime = now;
+        float workThisTick = motorForceKg * motorSpeedCmPerSec * deltaTime;
+        accumulatedWork += workThisTick;
     }
 
     private void ParseStatusFrames()
