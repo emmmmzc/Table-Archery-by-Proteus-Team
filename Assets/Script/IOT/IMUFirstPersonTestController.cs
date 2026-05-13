@@ -33,6 +33,13 @@ public class IMUFirstPersonTestController : MonoBehaviour
     public float rollLimit = 45f;
     public float maxPacketDeltaSeconds = 0.05f;
 
+    [Header("Drift Correction")]
+    public bool calibrateGyroOnStart = true;
+    public float gyroCalibrationSeconds = 1f;
+    public float calibrationStillGyroThreshold = 3f;
+    public float calibrationAccelerationTolerance = 0.25f;
+    public float maxGyroDegreesPerSecond = 250f;
+
     [Header("Keyboard Movement")]
     public bool allowKeyboardMove = true;
     public float moveSpeed = 3f;
@@ -49,6 +56,11 @@ public class IMUFirstPersonTestController : MonoBehaviour
     private float roll;
     private float verticalVelocity;
     private Vector3 filteredGyro;
+    private Vector3 gyroBias;
+    private Vector3 gyroCalibrationSum;
+    private float gyroCalibrationTimer;
+    private int gyroCalibrationSamples;
+    private bool gyroCalibrated;
 
     void Start()
     {
@@ -67,6 +79,8 @@ public class IMUFirstPersonTestController : MonoBehaviour
             pitch = NormalizeAngle(targetCamera.transform.localEulerAngles.x);
             roll = NormalizeAngle(targetCamera.transform.localEulerAngles.z);
         }
+
+        gyroCalibrated = !calibrateGyroOnStart;
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -97,7 +111,14 @@ public class IMUFirstPersonTestController : MonoBehaviour
         lastTimestampMs = packet.timestampMs;
         hasLastTimestamp = true;
 
-        Vector3 gyro = ApplyDeadZone(packet.gyroscope);
+        if (!gyroCalibrated)
+        {
+            UpdateStartupGyroCalibration(packet.gyroscope, packet.acceleration, deltaSeconds);
+            return;
+        }
+
+        Vector3 gyro = ClampGyro(packet.gyroscope - gyroBias);
+        gyro = ApplyDeadZone(gyro);
         filteredGyro = Vector3.Lerp(filteredGyro, gyro, 1f - gyroSmoothing);
         gyro = filteredGyro;
 
@@ -115,7 +136,35 @@ public class IMUFirstPersonTestController : MonoBehaviour
         }
 
         if (logState)
-            Debug.Log($"[IMU FPS] gyro={gyro} yaw={yaw:F1} pitch={pitch:F1} roll={roll:F1}");
+            Debug.Log($"[IMU FPS] gyro={gyro} bias={gyroBias} yaw={yaw:F1} pitch={pitch:F1} roll={roll:F1}");
+    }
+
+    private void UpdateStartupGyroCalibration(Vector3 rawGyro, Vector3 acceleration, float deltaSeconds)
+    {
+        bool gyroIsStill = rawGyro.magnitude <= calibrationStillGyroThreshold;
+        bool accelerationLooksLikeGravity = Mathf.Abs(acceleration.magnitude - 1f) <= calibrationAccelerationTolerance;
+
+        if (!gyroIsStill || !accelerationLooksLikeGravity)
+        {
+            gyroCalibrationSum = Vector3.zero;
+            gyroCalibrationTimer = 0f;
+            gyroCalibrationSamples = 0;
+            return;
+        }
+
+        gyroCalibrationSum += rawGyro;
+        gyroCalibrationTimer += deltaSeconds;
+        gyroCalibrationSamples++;
+
+        if (gyroCalibrationTimer < gyroCalibrationSeconds)
+            return;
+
+        gyroBias = gyroCalibrationSum / Mathf.Max(1, gyroCalibrationSamples);
+        gyroCalibrated = true;
+        filteredGyro = Vector3.zero;
+
+        if (logState)
+            Debug.Log($"[IMU FPS] gyro calibrated, bias={gyroBias}");
     }
 
     private float GetPacketDeltaSeconds(uint timestampMs)
@@ -135,6 +184,14 @@ public class IMUFirstPersonTestController : MonoBehaviour
         value.x = Mathf.Abs(value.x) < gyroDeadZone ? 0f : value.x;
         value.y = Mathf.Abs(value.y) < gyroDeadZone ? 0f : value.y;
         value.z = Mathf.Abs(value.z) < gyroDeadZone ? 0f : value.z;
+        return value;
+    }
+
+    private Vector3 ClampGyro(Vector3 value)
+    {
+        value.x = Mathf.Clamp(value.x, -maxGyroDegreesPerSecond, maxGyroDegreesPerSecond);
+        value.y = Mathf.Clamp(value.y, -maxGyroDegreesPerSecond, maxGyroDegreesPerSecond);
+        value.z = Mathf.Clamp(value.z, -maxGyroDegreesPerSecond, maxGyroDegreesPerSecond);
         return value;
     }
 
@@ -163,6 +220,11 @@ public class IMUFirstPersonTestController : MonoBehaviour
         pitch = 0f;
         roll = 0f;
         filteredGyro = Vector3.zero;
+        gyroBias = Vector3.zero;
+        gyroCalibrationSum = Vector3.zero;
+        gyroCalibrationTimer = 0f;
+        gyroCalibrationSamples = 0;
+        gyroCalibrated = !calibrateGyroOnStart;
         hasLastTimestamp = false;
 
         if (targetCamera != null)
