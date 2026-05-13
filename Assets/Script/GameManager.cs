@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using UnityEngine.InputSystem; // Needed for new Input System
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -110,6 +111,9 @@ public class GameManager : MonoBehaviour
     IEnumerator StartGameSequence()
     {
         yield return new WaitForSeconds(initialDelay);
+
+        if (SceneManager.GetActiveScene().name == "BOSSONLY")
+            yield break;
         
         // Begin zombie waves (ZombieSpawner will handle pointing before each wave)
         if (zombieSpawner != null)

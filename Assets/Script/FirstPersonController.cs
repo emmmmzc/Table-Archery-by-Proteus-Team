@@ -206,7 +206,11 @@ public class FirstPersonController : MonoBehaviour
             Quaternion arrowRotation = mainCamera.transform.rotation * Quaternion.Euler(90f, 0f, 0f);
             GameObject projectile = Instantiate(projectilePrefab, spawnPosition, arrowRotation);
             Rigidbody rb = projectile.GetComponent<Rigidbody>();
-            if (rb != null) rb.AddForce(mainCamera.transform.forward * fireForce, ForceMode.Impulse);
+            if (rb != null)
+            {
+                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                rb.AddForce(mainCamera.transform.forward * fireForce, ForceMode.Impulse);
+            }
             Destroy(projectile, 5f);
             HideHeldArrowThenReload();
             ResetBowVisualAfterDelay();

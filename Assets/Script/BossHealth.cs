@@ -41,14 +41,23 @@ public class BossHealth : MonoBehaviour
 
     public void TakeSpecialAttack()
     {
+        TakeDamage(1);
+    }
+
+    public void TakeDamage(int damage)
+    {
         if (isDefeated) return;
 
-        currentHits++;
-        Debug.Log($"Special attack hit! {currentHits}/{hitsToDefeat}");
+        currentHits += Mathf.Max(1, damage);
+        currentHits = Mathf.Min(currentHits, hitsToDefeat);
+        Debug.Log($"Boss hit! {currentHits}/{hitsToDefeat}");
         UpdateHealthUI();
 
         if (currentHits < hitsToDefeat)
-            AudioManager.Instance.Play("BossDamage");
+        {
+            if (AudioManager.Instance != null)
+                AudioManager.Instance.Play("BossDamage");
+        }
 
         if (currentHits < hitsToDefeat && bossAnimator != null)
             bossAnimator.SetTrigger(hitTrigger);
@@ -66,7 +75,8 @@ public class BossHealth : MonoBehaviour
     void DefeatBoss()
     {
         isDefeated = true;
-        AudioManager.Instance.Play("BossDeath");
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play("BossDeath");
 
         if (bossAnimator != null && !string.IsNullOrEmpty(specialDeathTrigger))
             bossAnimator.SetTrigger(specialDeathTrigger);
@@ -79,7 +89,8 @@ public class BossHealth : MonoBehaviour
     void GameWin()
     {
         Debug.Log("BOSS DEFEATED! YOU WIN!");
-        AudioManager.Instance.Play("Victory");
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play("Victory");
         MotorController motorController = FindAnyObjectByType<MotorController>();
         if (motorController != null)
             motorController.SendPowerOff();

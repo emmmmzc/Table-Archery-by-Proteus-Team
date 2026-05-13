@@ -11,6 +11,9 @@ public class DestroyOnHit : MonoBehaviour
     
     [Header("Energy")]
     public int energyGain = 1;           // How much energy per destroyed enemy projectile
+
+    [Header("Boss")]
+    public int bossDamage = 1;
     
     private PlayerEnergy playerEnergy;
     
@@ -21,6 +24,16 @@ public class DestroyOnHit : MonoBehaviour
     
     private void OnCollisionEnter(Collision collision)
     {
+        BossHealth boss = collision.gameObject.GetComponentInParent<BossHealth>();
+        if (boss != null)
+        {
+            boss.TakeDamage(bossDamage);
+            if (bloodEffect != null)
+                Instantiate(bloodEffect, transform.position, Quaternion.identity);
+            Destroy(gameObject);
+            return;
+        }
+
         foreach (string tag in tagsThatDestroyThis)
         {
             if (collision.gameObject.CompareTag(tag))

@@ -41,6 +41,7 @@ public class MotorController : MonoBehaviour
     [Header("Startup Delay")]
     public float powerOnDelaySeconds = 0.2f;
     public float defaultModeDelaySeconds = 0.1f;
+    public float releaseProtectionDelaySeconds = 0.08f;
 
     [Header("Enable Package")]
     public float enablePackageIntervalSeconds = 1f;
@@ -71,10 +72,6 @@ public class MotorController : MonoBehaviour
     public bool logRawRx = true;
     public bool logDecodedStatus = true;
 
-    private ushort SpringBaseForce => springBaseForce;
-    private ushort SpringPullLimit => springPullLimit;
-    private byte SpringDistance => springDistance;
-
 #if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
     private SerialPort serialPort;
 #endif
@@ -96,6 +93,8 @@ public class MotorController : MonoBehaviour
 
     private Coroutine enablePackageRoutine;
     private Coroutine resumeAfterPauseRoutine;
+    private Coroutine applySpringSettingsRoutine;
+    private Coroutine enablePackageSendRoutine;
 
     public float MotorForceKg => motorForceKg;
     public float MotorSpeedCmPerSec => motorSpeedCmPerSec;
@@ -164,6 +163,8 @@ public class MotorController : MonoBehaviour
     {
         initialized = false;
         StopEnablePackageLoop();
+        CancelApplySpringSettingsRoutine();
+        CancelResumeAfterPauseRoutine();
 
 #if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
         if (serialPort == null)
@@ -208,6 +209,7 @@ public class MotorController : MonoBehaviour
 
         StopEnablePackageLoop();
         CancelResumeAfterPauseRoutine();
+        CancelApplySpringSettingsRoutine();
 
         SendRawHex(powerOffRawHex);
     }
@@ -233,13 +235,26 @@ public class MotorController : MonoBehaviour
         SendCommand(MotorCommandPacket.CreateSpringModePacket(baseForce, pullLimit, distance, springModeCode, springSpeedCoeff, clearFlag));
     }
 
+    public void SendReleaseProtection()
+    {
+        if (string.IsNullOrWhiteSpace(releaseProtectionRawHex))
+        {
+            Debug.LogWarning("[IOT][Motor] releaseProtectionRawHex is empty; send aborted.");
+            return;
+        }
+
+        SendRawHex(releaseProtectionRawHex);
+    }
+
     public void ApplySpringSettings()
     {
         if (!initialized)
             return;
 
-        SendSpringMode(springBaseForce, springPullLimit, springDistance);
-        SendRawHex(releaseProtectionRawHex);
+        if (applySpringSettingsRoutine != null)
+            StopCoroutine(applySpringSettingsRoutine);
+
+        applySpringSettingsRoutine = StartCoroutine(ApplySpringSettingsRoutine());
     }
 
     /// <summary>
@@ -252,6 +267,15 @@ public class MotorController : MonoBehaviour
 
         StopCoroutine(resumeAfterPauseRoutine);
         resumeAfterPauseRoutine = null;
+    }
+
+    private void CancelApplySpringSettingsRoutine()
+    {
+        if (applySpringSettingsRoutine == null)
+            return;
+
+        StopCoroutine(applySpringSettingsRoutine);
+        applySpringSettingsRoutine = null;
     }
 
     public void ResumeAfterPause()
@@ -282,7 +306,11 @@ public class MotorController : MonoBehaviour
             yield return new WaitForSeconds(defaultModeDelaySeconds);
 
         SendSpringMode(springBaseForce, springPullLimit, springDistance);
-        SendRawHex(releaseProtectionRawHex);
+
+        if (releaseProtectionDelaySeconds > 0f)
+            yield return new WaitForSeconds(releaseProtectionDelaySeconds);
+
+        SendReleaseProtection();
 
         // If startup sequence never ran this scene (e.g. scene name gate), keep-alive may never have started.
         StartEnablePackageLoop();
@@ -500,7 +528,7 @@ public class MotorController : MonoBehaviour
 
     private IEnumerator SendStartupSequence()
     {
-        if (SceneManager.GetActiveScene().name != "SampleScene")
+        if (SceneManager.GetActiveScene().name == "menu")
             yield break;
 
         if (powerOnDelaySeconds > 0f)
@@ -512,15 +540,35 @@ public class MotorController : MonoBehaviour
             yield return new WaitForSeconds(defaultModeDelaySeconds);
 
         SendSpringMode(springBaseForce, springPullLimit, springDistance);
-        SendRawHex(releaseProtectionRawHex);
+
+        if (releaseProtectionDelaySeconds > 0f)
+            yield return new WaitForSeconds(releaseProtectionDelaySeconds);
+
+        SendReleaseProtection();
 
         StartEnablePackageLoop();
     }
 
     private void SendEnablePackage()
     {
+        if (enablePackageSendRoutine != null)
+            return;
+
+        enablePackageSendRoutine = StartCoroutine(SendEnablePackageRoutine());
+    }
+
+    private IEnumerator ApplySpringSettingsRoutine()
+    {
         SendSpringMode(springBaseForce, springPullLimit, springDistance);
-        SendRawHex(releaseProtectionRawHex);
+        applySpringSettingsRoutine = null;
+        yield break;
+    }
+
+    private IEnumerator SendEnablePackageRoutine()
+    {
+        SendSpringMode(springBaseForce, springPullLimit, springDistance);
+        enablePackageSendRoutine = null;
+        yield break;
     }
 
     private void StartEnablePackageLoop()
@@ -534,10 +582,25 @@ public class MotorController : MonoBehaviour
     private void StopEnablePackageLoop()
     {
         if (enablePackageRoutine == null)
+        {
+            if (enablePackageSendRoutine != null)
+            {
+                StopCoroutine(enablePackageSendRoutine);
+                enablePackageSendRoutine = null;
+            }
             return;
+        }
+        else
+        {
+            StopCoroutine(enablePackageRoutine);
+            enablePackageRoutine = null;
+        }
 
-        StopCoroutine(enablePackageRoutine);
-        enablePackageRoutine = null;
+        if (enablePackageSendRoutine != null)
+        {
+            StopCoroutine(enablePackageSendRoutine);
+            enablePackageSendRoutine = null;
+        }
     }
 
     private IEnumerator EnablePackageLoop()
