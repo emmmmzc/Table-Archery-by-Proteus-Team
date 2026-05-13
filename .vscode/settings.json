@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Table-Archery-by-Proteus-Team.slnx"
+    "dotnet.defaultSolution": "finalShit_v0.slnx"
 }

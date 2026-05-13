@@ -1740,6 +1740,16 @@ MonoBehaviour:
   motorFireReleaseDistance: 30
   inputHandler: {fileID: 0}
   disconnectedMotorScore: 20
+  workToScoreMultiplier: 10
+  maxWorkScore: 800
+  useQualityScore: 0
+  maxQualityScore: 1200
+  qualityForceMax: 45
+  qualitySpeedMax: 12
+  qualityDistanceMax: 35
+  qualityForceWeight: 0.45
+  qualitySpeedWeight: 0.35
+  qualityDistanceWeight: 0.2
   logLifecycle: 1
   logRawTx: 0
   logRawRx: 0
@@ -4399,7 +4409,7 @@ MonoBehaviour:
   motorController: {fileID: 701934993}
   imuReceiver: {fileID: 932663659}
   passGrade: 60
-  useRealMotor: 0
+  useRealMotor: 1
   defaultMotorScore: 80
   useImuScore: 1
   imuScoreOverride: 0
@@ -5042,7 +5052,7 @@ MonoBehaviour:
   player: {fileID: 1626261873}
   minInterval: 5
   maxInterval: 10
-  projectileCount: 3
+  projectileCount: 4
   horizontalRange: 20
   verticalRange: 10
   spawnHeightOffset: 40
