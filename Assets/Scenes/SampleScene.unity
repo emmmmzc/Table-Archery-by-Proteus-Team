@@ -987,9 +987,9 @@ MonoBehaviour:
   horizontalRange: 30
   depthRange: 5
   verticalOffset: 20
-  totalWaves: 0
-  minZombiesPerWave: 3
-  maxZombiesPerWave: 5
+  totalWaves: 5
+  minZombiesPerWave: 2
+  maxZombiesPerWave: 3
   timeBetweenWaves: 5
   spawnDelayWithinWave: 1
   pointingAnimationDuration: 1.5
@@ -1738,12 +1738,9 @@ MonoBehaviour:
   useMotorDistanceTrigger: 1
   motorChargeStartDistance: 30
   motorFireReleaseDistance: 30
-  motorReboundMinSpeed: 15
-  motorReboundDistanceEpsilon: 0.5
-  motorChargeWindowSeconds: 0.8
   inputHandler: {fileID: 0}
   disconnectedMotorScore: 20
-  workToScoreMultiplier: 10
+  workToScoreMultiplier: 0.06
   maxWorkScore: 800
   useQualityScore: 0
   maxQualityScore: 1200
@@ -4095,7 +4092,8 @@ MonoBehaviour:
   pitchSign: 1
   rollSign: 1
   applyRollToCamera: 0
-  pitchLimit: 80
+  pitchDownLimit: 0
+  pitchUpLimit: 45
   rollLimit: 45
   maxPacketDeltaSeconds: 0.05
   calibrateGyroOnStart: 1
@@ -5060,7 +5058,7 @@ MonoBehaviour:
   player: {fileID: 1626261873}
   minInterval: 5
   maxInterval: 10
-  projectileCount: 4
+  projectileCount: 0
   horizontalRange: 20
   verticalRange: 10
   spawnHeightOffset: 40

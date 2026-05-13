@@ -29,6 +29,8 @@ public class IMUFirstPersonTestController : MonoBehaviour
     public float pitchSign = -1f;
     public float rollSign = 1f;
     public bool applyRollToCamera = false;
+    public float yawLeftLimit = 45f;
+    public float yawRightLimit = 45f;
     public float pitchDownLimit = 20f;
     public float pitchUpLimit = 45f;
     public float rollLimit = 45f;
@@ -45,6 +47,18 @@ public class IMUFirstPersonTestController : MonoBehaviour
     public float pitchDriftStillGyroThreshold = 1.5f;
     public float pitchDriftStillSeconds = 0.6f;
     public float pitchBiasCorrectionSpeed = 0.15f;
+    public bool correctYawDriftWhileStill = true;
+    public float yawDriftStillGyroThreshold = 1.2f;
+    public float yawDriftStillSeconds = 0.8f;
+    public float yawBiasCorrectionSpeed = 0.08f;
+
+    [Header("Shot Recalibration")]
+    public bool recalibrateAfterShot = true;
+    public float shotRecalibrationDelaySeconds = 0.25f;
+    public float shotRecalibrationSeconds = 0.5f;
+    public float shotRecalibrationMaxWaitSeconds = 1.5f;
+    public float shotRecalibrationStillGyroThreshold = 5f;
+    public bool freezeImuDuringShotRecalibration = true;
 
     [Header("Keyboard Movement")]
     public bool allowKeyboardMove = true;
@@ -57,6 +71,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
 
     private uint lastTimestampMs;
     private bool hasLastTimestamp;
+    private float yawCenter;
     private float yaw;
     private float pitch;
     private float roll;
@@ -69,6 +84,13 @@ public class IMUFirstPersonTestController : MonoBehaviour
     private int gyroCalibrationSamples;
     private bool gyroCalibrated;
     private float pitchStillTimer;
+    private float yawStillTimer;
+    private bool waitingForShotRecalibration;
+    private float shotRecalibrationDelayTimer;
+    private float shotRecalibrationTimer;
+    private float shotRecalibrationWaitTimer;
+    private int shotRecalibrationSamples;
+    private Vector3 shotRecalibrationSum;
 
     void Start()
     {
@@ -81,6 +103,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
 
         Vector3 angles = transform.eulerAngles;
         yaw = angles.y;
+        yawCenter = yaw;
 
         if (targetCamera != null)
         {
@@ -119,6 +142,13 @@ public class IMUFirstPersonTestController : MonoBehaviour
         lastTimestampMs = packet.timestampMs;
         hasLastTimestamp = true;
 
+        if (waitingForShotRecalibration)
+        {
+            UpdateShotRecalibration(packet.gyroscope, packet.acceleration, deltaSeconds);
+            if (freezeImuDuringShotRecalibration)
+                return;
+        }
+
         if (!gyroCalibrated)
         {
             UpdateStartupGyroCalibration(packet.gyroscope, packet.acceleration, deltaSeconds);
@@ -126,6 +156,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
         }
 
         UpdatePitchDriftCorrection(packet.gyroscope, packet.acceleration, deltaSeconds);
+        UpdateYawDriftCorrection(packet.gyroscope, packet.acceleration, deltaSeconds);
 
         Vector3 gyro = ClampGyro(packet.gyroscope - gyroBias);
         gyro = ApplyDeadZone(gyro);
@@ -133,6 +164,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
         gyro = filteredGyro;
 
         yaw += GetAxisValue(gyro, yawAxis) * gyroSensitivity * yawSign * deltaSeconds;
+        yaw = ClampYawAroundCenter(yaw);
         pitch += GetAxisValue(gyro, pitchAxis) * gyroSensitivity * pitchSign * deltaSeconds;
         roll += GetAxisValue(gyro, rollAxis) * gyroSensitivity * rollSign * deltaSeconds;
         pitch = Mathf.Clamp(pitch, -pitchUpLimit, pitchDownLimit);
@@ -188,6 +220,60 @@ public class IMUFirstPersonTestController : MonoBehaviour
             Debug.Log($"[IMU FPS] gyro calibrated, bias={gyroBias}, samples={gyroCalibrationSamples}");
     }
 
+    private void UpdateShotRecalibration(Vector3 rawGyro, Vector3 acceleration, float deltaSeconds)
+    {
+        shotRecalibrationWaitTimer += deltaSeconds;
+
+        if (shotRecalibrationDelayTimer > 0f)
+        {
+            shotRecalibrationDelayTimer -= deltaSeconds;
+            return;
+        }
+
+        bool gyroIsStill = rawGyro.magnitude <= shotRecalibrationStillGyroThreshold;
+        bool accelerationLooksLikeGravity = Mathf.Abs(acceleration.magnitude - 1f) <= calibrationAccelerationTolerance;
+
+        if (!gyroIsStill || !accelerationLooksLikeGravity)
+        {
+            shotRecalibrationSum = Vector3.zero;
+            shotRecalibrationTimer = 0f;
+            shotRecalibrationSamples = 0;
+            if (shotRecalibrationWaitTimer >= shotRecalibrationMaxWaitSeconds)
+                FinishShotRecalibration();
+            return;
+        }
+
+        shotRecalibrationSum += rawGyro;
+        shotRecalibrationTimer += deltaSeconds;
+        shotRecalibrationSamples++;
+
+        if (shotRecalibrationTimer >= shotRecalibrationSeconds)
+            FinishShotRecalibration();
+    }
+
+    private void FinishShotRecalibration()
+    {
+        int completedSamples = shotRecalibrationSamples;
+
+        if (shotRecalibrationSamples > 0)
+            gyroBias = shotRecalibrationSum / shotRecalibrationSamples;
+
+        waitingForShotRecalibration = false;
+        shotRecalibrationDelayTimer = 0f;
+        shotRecalibrationTimer = 0f;
+        shotRecalibrationWaitTimer = 0f;
+        shotRecalibrationSamples = 0;
+        shotRecalibrationSum = Vector3.zero;
+        filteredGyro = Vector3.zero;
+        pitchStillTimer = 0f;
+        yawStillTimer = 0f;
+        hasLastTimestamp = false;
+        RecenterViewOnly();
+
+        if (logState)
+            Debug.Log($"[IMU FPS] shot recalibrated, bias={gyroBias}, samples={completedSamples}");
+    }
+
     private void UpdatePitchDriftCorrection(Vector3 rawGyro, Vector3 acceleration, float deltaSeconds)
     {
         if (!correctPitchDriftWhileStill)
@@ -215,6 +301,35 @@ public class IMUFirstPersonTestController : MonoBehaviour
         );
 
         SetAxisValue(ref gyroBias, pitchAxis, correctedPitchBias);
+    }
+
+    private void UpdateYawDriftCorrection(Vector3 rawGyro, Vector3 acceleration, float deltaSeconds)
+    {
+        if (!correctYawDriftWhileStill)
+            return;
+
+        bool gyroIsStill = rawGyro.magnitude <= yawDriftStillGyroThreshold;
+        bool accelerationLooksLikeGravity = Mathf.Abs(acceleration.magnitude - 1f) <= calibrationAccelerationTolerance;
+
+        if (!gyroIsStill || !accelerationLooksLikeGravity)
+        {
+            yawStillTimer = 0f;
+            return;
+        }
+
+        yawStillTimer += deltaSeconds;
+        if (yawStillTimer < yawDriftStillSeconds)
+            return;
+
+        float rawYawGyro = GetAxisValue(rawGyro, yawAxis);
+        float currentYawBias = GetAxisValue(gyroBias, yawAxis);
+        float correctedYawBias = Mathf.MoveTowards(
+            currentYawBias,
+            rawYawGyro,
+            yawBiasCorrectionSpeed * deltaSeconds
+        );
+
+        SetAxisValue(ref gyroBias, yawAxis, correctedYawBias);
     }
 
     private float GetPacketDeltaSeconds(uint timestampMs)
@@ -267,6 +382,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
     public void Recenter()
     {
         yaw = transform.eulerAngles.y;
+        yawCenter = yaw;
         pitch = 0f;
         roll = 0f;
         filteredGyro = Vector3.zero;
@@ -275,9 +391,47 @@ public class IMUFirstPersonTestController : MonoBehaviour
         gyroCalibrationTimer = 0f;
         gyroCalibrationWaitTimer = 0f;
         gyroCalibrationSamples = 0;
+        waitingForShotRecalibration = false;
+        shotRecalibrationDelayTimer = 0f;
+        shotRecalibrationTimer = 0f;
+        shotRecalibrationWaitTimer = 0f;
+        shotRecalibrationSamples = 0;
+        shotRecalibrationSum = Vector3.zero;
         pitchStillTimer = 0f;
+        yawStillTimer = 0f;
         gyroCalibrated = !calibrateGyroOnStart;
         hasLastTimestamp = false;
+
+        if (targetCamera != null)
+            targetCamera.transform.localRotation = Quaternion.identity;
+    }
+
+    public void RecenterAfterShot()
+    {
+        if (!recalibrateAfterShot)
+        {
+            Recenter();
+            return;
+        }
+
+        waitingForShotRecalibration = true;
+        shotRecalibrationDelayTimer = shotRecalibrationDelaySeconds;
+        shotRecalibrationTimer = 0f;
+        shotRecalibrationWaitTimer = 0f;
+        shotRecalibrationSamples = 0;
+        shotRecalibrationSum = Vector3.zero;
+        filteredGyro = Vector3.zero;
+        pitchStillTimer = 0f;
+        yawStillTimer = 0f;
+        hasLastTimestamp = false;
+    }
+
+    private void RecenterViewOnly()
+    {
+        yaw = transform.eulerAngles.y;
+        yawCenter = yaw;
+        pitch = 0f;
+        roll = 0f;
 
         if (targetCamera != null)
             targetCamera.transform.localRotation = Quaternion.identity;
@@ -312,6 +466,13 @@ public class IMUFirstPersonTestController : MonoBehaviour
                 value.z = axisValue;
                 break;
         }
+    }
+
+    private float ClampYawAroundCenter(float yawAngle)
+    {
+        float offset = Mathf.DeltaAngle(yawCenter, yawAngle);
+        offset = Mathf.Clamp(offset, -yawLeftLimit, yawRightLimit);
+        return yawCenter + offset;
     }
 
     private static float NormalizeAngle(float angle)

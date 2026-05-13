@@ -210,6 +210,7 @@ public class FirstPersonController : MonoBehaviour
             Destroy(projectile, 5f);
             HideHeldArrowThenReload();
             ResetBowVisualAfterDelay();
+            RecenterImuAfterShot();
 
             // Exit aim mode after shooting
             isAiming = false;
@@ -226,6 +227,16 @@ public class FirstPersonController : MonoBehaviour
     {
         // Smoothly adjust FOV
         mainCamera.fieldOfView = Mathf.Lerp(mainCamera.fieldOfView, targetFOV, zoomSpeed * Time.deltaTime);
+    }
+
+    private void RecenterImuAfterShot()
+    {
+        IMUFirstPersonTestController imuController = GetComponent<IMUFirstPersonTestController>();
+        if (imuController == null)
+            imuController = FindAnyObjectByType<IMUFirstPersonTestController>();
+
+        if (imuController != null)
+            imuController.RecenterAfterShot();
     }
 
     private void ResolveBowVisualReferences()

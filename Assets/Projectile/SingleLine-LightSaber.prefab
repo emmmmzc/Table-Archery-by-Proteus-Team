@@ -32,7 +32,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.1, y: 0.01, z: 0.1}
+  m_LocalScale: {x: 0.15, y: 0.03, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -153,6 +153,7 @@ MonoBehaviour:
   - Zombie
   explosionEffect: {fileID: 4115455537270748339, guid: 6555300494081614fa6b6a823cca9f64, type: 3}
   bloodEffect: {fileID: 6361997728236094490, guid: 28b34b36357e84ba78a0e6e629c50487, type: 3}
+  energyGain: 1
 --- !u!54 &-7862671364523018798
 Rigidbody:
   m_ObjectHideFlags: 0
