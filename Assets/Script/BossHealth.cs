@@ -60,7 +60,7 @@ public class BossHealth : MonoBehaviour
     private void UpdateHealthUI()
     {
         if (bossHealthBarFill != null)
-            bossHealthBarFill.fillAmount = (float)currentHits / hitsToDefeat;
+            bossHealthBarFill.fillAmount = (float)(hitsToDefeat - currentHits) / hitsToDefeat;
     }
 
     void DefeatBoss()

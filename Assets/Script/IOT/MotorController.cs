@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 using UnityEngine;
 
 #if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
@@ -89,11 +90,8 @@ public class MotorController : MonoBehaviour
     {
         if (logLifecycle)
             Debug.Log($"[IOT][Motor] Start on {gameObject.name} (port={portName})");
+        ReloadSettingsFromPrefs();
         Initialize(portName);
-
-        springBaseForce = (ushort)PlayerPrefs.GetInt("MotorBaseForce", 300);
-
-        springDistance = (byte)PlayerPrefs.GetInt("MotorDistance", 30);
     }
 
     void Update()
@@ -224,6 +222,22 @@ public class MotorController : MonoBehaviour
             SendSpringModeWithClear(springBaseForce, springPullLimit, springDistance, pullCountClearFlag);
         else
             SendSpringMode(springBaseForce, springPullLimit, springDistance);
+    }
+
+    public void ResumeAfterPause()
+    {
+        if (!initialized)
+            return;
+
+        SendPowerOn();
+        SendSpringMode(springBaseForce, springPullLimit, springDistance);
+        SendRawHex(releaseProtectionRawHex);
+    }
+
+    public void ReloadSettingsFromPrefs()
+    {
+        springBaseForce = (ushort)PlayerPrefs.GetInt("MotorBaseForce", 300);
+        springDistance = (byte)PlayerPrefs.GetInt("MotorDistance", 30);
     }
 
     /* ------------------------- Scoring & Tracking ------------------------ */
@@ -406,6 +420,9 @@ public class MotorController : MonoBehaviour
 
     private IEnumerator SendStartupSequence()
     {
+        if (SceneManager.GetActiveScene().name != "SampleScene")
+            yield break;
+
         if (powerOnDelaySeconds > 0f)
             yield return new WaitForSeconds(powerOnDelaySeconds);
 
@@ -427,9 +444,8 @@ public class MotorController : MonoBehaviour
         //SendPowerOn();
 
         SendSpringMode(springBaseForce, springPullLimit, springDistance);
+        SendRawHex(releaseProtectionRawHex);
 
-        if (!string.IsNullOrWhiteSpace(releaseProtectionRawHex))
-            SendRawHex(releaseProtectionRawHex);
     }
 
     private void StartEnablePackageLoop()

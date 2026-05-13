@@ -48,6 +48,7 @@ public class MotorSettingsMenu : MonoBehaviour
     public void Apply()
     {
         Save();
+        ApplyToLiveMotorIfPresent();
     }
 
     public void Save()
@@ -58,6 +59,16 @@ public class MotorSettingsMenu : MonoBehaviour
             PlayerPrefs.SetInt(PrefDistance, Mathf.RoundToInt(distanceSlider.value));
 
         PlayerPrefs.Save();
+    }
+
+    private static void ApplyToLiveMotorIfPresent()
+    {
+        MotorController motor = FindAnyObjectByType<MotorController>();
+        if (motor == null)
+            return;
+
+        motor.ReloadSettingsFromPrefs();
+        motor.ApplySpringSettings();
     }
 
     public void LoadToUI()

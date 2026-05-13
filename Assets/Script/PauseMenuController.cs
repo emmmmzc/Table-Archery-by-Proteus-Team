@@ -73,6 +73,9 @@ public class PauseMenuController : MonoBehaviour
     {
         isPaused = false;
         Time.timeScale = 1f;
+        MotorController motorController = FindAnyObjectByType<MotorController>();
+        if (motorController != null)
+            motorController.ResumeAfterPause();
         if (pausePanel != null)
             pausePanel.SetActive(false);
 
