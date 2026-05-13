@@ -15,6 +15,8 @@ public struct FitnessHitResult
 public struct FitnessSessionResult
 {
     public int sessionScore;
+    public int sessionMotorScore;
+    public int sessionImuScore;
     public int sessionHitCount;
     public int sessionPullCount;
 }
@@ -25,6 +27,7 @@ public class FitnessManager : MonoBehaviour
 
     [Header("Dependencies")]
     public MotorController motorController;
+    public IMUReceiver imuReceiver;
 
     [Header("Scoring")]
     public int passGrade = 60;
@@ -34,11 +37,24 @@ public class FitnessManager : MonoBehaviour
     [Header("IMU")]
     public bool useImuScore = false;
     public int imuScoreOverride = 0;
+    public float excellentGyroAverage = 1f;
+    public float goodGyroAverage = 2f;
+    public float okGyroAverage = 4f;
+    public float shakyGyroAverage = 7f;
+    public float veryShakyGyroAverage = 10f;
 
     [Header("Session (Read Only)")]
     public int sessionScore;
+    public int sessionMotorScore;
+    public int sessionImuScore;
     public int sessionHitCount;
     public int sessionPullCount;
+
+    [Header("Last Hit (Read Only)")]
+    public int lastMotorScore;
+    public int lastImuScore;
+    public int lastTotalScore;
+    public float lastImuAverageGyro;
 
     [Header("Lifetime (Read Only)")]
     public int lifetimeScore;
@@ -50,6 +66,9 @@ public class FitnessManager : MonoBehaviour
 
     private string jsonPath;
     private LifetimeData lifetime = new LifetimeData();
+    private bool isTrackingImuScore;
+    private float imuGyroMagnitudeSum;
+    private int imuSampleCount;
 
     [Serializable]
     private class LifetimeData
@@ -70,6 +89,9 @@ public class FitnessManager : MonoBehaviour
         jsonPath = Path.Combine(Application.dataPath, jsonFileName);
         LoadLifetime();
         ApplyLifetimeToPublic();
+
+        if (imuReceiver == null)
+            imuReceiver = FindAnyObjectByType<IMUReceiver>();
     }
 
     /* ------------------------------ Scoring ------------------------------ */
@@ -79,13 +101,21 @@ public class FitnessManager : MonoBehaviour
 
         if (useImuScore)
             imuScore = GetImuScore();
+        else
+            isTrackingImuScore = false;
 
         // Combine motor + IMU, then compare with passGrade.
         int totalScore = motorScore + imuScore;
         bool isExcellent = totalScore >= passGrade;
         string grade = isExcellent ? "Excellent" : "Miss";
 
+        lastMotorScore = motorScore;
+        lastImuScore = imuScore;
+        lastTotalScore = totalScore;
+
         sessionScore += totalScore;
+        sessionMotorScore += motorScore;
+        sessionImuScore += imuScore;
         sessionPullCount += 1;
         if (isExcellent)
             sessionHitCount += 1;
@@ -107,6 +137,8 @@ public class FitnessManager : MonoBehaviour
         return new FitnessSessionResult
         {
             sessionScore = sessionScore,
+            sessionMotorScore = sessionMotorScore,
+            sessionImuScore = sessionImuScore,
             sessionHitCount = sessionHitCount,
             sessionPullCount = sessionPullCount
         };
@@ -127,14 +159,54 @@ public class FitnessManager : MonoBehaviour
     public void ClearSession()
     {
         sessionScore = 0;
+        sessionMotorScore = 0;
+        sessionImuScore = 0;
         sessionHitCount = 0;
         sessionPullCount = 0;
     }
 
     /* ------------------------------- IMU --------------------------------- */
+    public void BeginImuScoreWindow()
+    {
+        isTrackingImuScore = true;
+        imuGyroMagnitudeSum = 0f;
+        imuSampleCount = 0;
+    }
+
+    void Update()
+    {
+        if (!isTrackingImuScore || !useImuScore || imuReceiver == null || !imuReceiver.hasPacket)
+            return;
+
+        imuGyroMagnitudeSum += imuReceiver.gyroscope.magnitude;
+        imuSampleCount++;
+    }
+
     private int GetImuScore()
     {
-        return imuScoreOverride;
+        isTrackingImuScore = false;
+
+        if (imuSampleCount <= 0)
+        {
+            lastImuAverageGyro = 0f;
+            return Mathf.Clamp(imuScoreOverride, 0, 10);
+        }
+
+        float averageGyro = imuGyroMagnitudeSum / imuSampleCount;
+        lastImuAverageGyro = averageGyro;
+
+        if (averageGyro <= excellentGyroAverage)
+            return 10;
+        if (averageGyro <= goodGyroAverage)
+            return 8;
+        if (averageGyro <= okGyroAverage)
+            return 6;
+        if (averageGyro <= shakyGyroAverage)
+            return 4;
+        if (averageGyro <= veryShakyGyroAverage)
+            return 2;
+
+        return 0;
     }
 
     /* ------------------------------ Storage ------------------------------ */

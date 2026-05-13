@@ -157,6 +157,8 @@ public class FirstPersonController : MonoBehaviour
             BeginBowDrawVisual();
             if (motorController != null)
                 motorController.BeginForceWindow();
+            if (fitnessManager != null)
+                fitnessManager.BeginImuScoreWindow();
             if (playerInputHandler != null)
                 playerInputHandler.ConsumeAim();
         }

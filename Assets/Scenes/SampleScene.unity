@@ -2512,6 +2512,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SessionScoreText
   scoreText: {fileID: 1094650461}
   fitnessManager: {fileID: 1696174450}
+  scoreSource: 0
   format: Score:{0}
 --- !u!1 &1203042850
 GameObject:
@@ -3169,6 +3170,9 @@ MonoBehaviour:
   excellentObject: {fileID: 652234369}
   missObject: {fileID: 1930760274}
   scoreText: {fileID: 2072485507}
+  motorScoreText: {fileID: 0}
+  imuScoreText: {fileID: 0}
+  showScoreBreakdownInMainText: 1
   attackPopupDuration: 0.8
   specialAttackProjectilePrefab: {fileID: 256899533}
   specialAttackSpawn: {fileID: 1626261873}
@@ -3520,14 +3524,26 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FitnessManager
   motorController: {fileID: 701934993}
+  imuReceiver: {fileID: 932663659}
   passGrade: 60
   useRealMotor: 0
   defaultMotorScore: 80
-  useImuScore: 0
+  useImuScore: 1
   imuScoreOverride: 0
+  excellentGyroAverage: 1
+  goodGyroAverage: 2
+  okGyroAverage: 4
+  shakyGyroAverage: 7
+  veryShakyGyroAverage: 10
   sessionScore: 0
+  sessionMotorScore: 0
+  sessionImuScore: 0
   sessionHitCount: 0
   sessionPullCount: 0
+  lastMotorScore: 0
+  lastImuScore: 0
+  lastTotalScore: 0
+  lastImuAverageGyro: 0
   lifetimeScore: 0
   lifetimeHits: 0
   lifetimePulls: 0
