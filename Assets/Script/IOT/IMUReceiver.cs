@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -18,10 +20,14 @@ public class IMUReceiver : MonoBehaviour
     [Header("UDP")]
     public int listenPort = 5005;
     public bool startOnAwake = true;
+    public bool sendDiscoveryHello = true;
+    public string discoveryMessage = "IMU_HELLO";
+    public float discoveryIntervalSeconds = 1f;
 
     [Header("Debug")]
     public bool logPackets = false;
     public bool logErrors = true;
+    public bool logDiscovery = false;
 
     [Header("Latest Packet (Read Only)")]
     public bool hasPacket;
@@ -29,10 +35,13 @@ public class IMUReceiver : MonoBehaviour
     public Vector3 acceleration;
     public Vector3 gyroscope;
     public float lastPacketUnityTime;
+    public float lastDiscoveryUnityTime;
 
     private UdpClient udpClient;
     private Thread receiveThread;
     private volatile bool running;
+    private float nextDiscoveryTime;
+    private readonly List<IPAddress> discoveryTargets = new List<IPAddress>();
     private readonly object packetLock = new object();
     private ImuPacket latestPacket;
     private bool hasPendingPacket;
@@ -56,6 +65,8 @@ public class IMUReceiver : MonoBehaviour
 
     void Update()
     {
+        SendDiscoveryHelloIfNeeded();
+
         ImuPacket packet;
         bool shouldApply;
 
@@ -79,6 +90,67 @@ public class IMUReceiver : MonoBehaviour
             Debug.Log($"[IMU] t={timestampMs} acc={acceleration} gyro={gyroscope}");
     }
 
+    private void SendDiscoveryHelloIfNeeded()
+    {
+        if (!sendDiscoveryHello || udpClient == null || Time.unscaledTime < nextDiscoveryTime)
+            return;
+
+        nextDiscoveryTime = Time.unscaledTime + Mathf.Max(0.1f, discoveryIntervalSeconds);
+
+        try
+        {
+            byte[] data = Encoding.ASCII.GetBytes(discoveryMessage);
+            RefreshDiscoveryTargets();
+            foreach (IPAddress target in discoveryTargets)
+                udpClient.Send(data, data.Length, new IPEndPoint(target, listenPort));
+
+            lastDiscoveryUnityTime = Time.unscaledTime;
+
+            if (logDiscovery)
+                Debug.Log($"[IMU] Sent discovery hello to {discoveryTargets.Count} targets on UDP port {listenPort}");
+        }
+        catch (Exception ex)
+        {
+            if (logErrors)
+                Debug.LogWarning($"[IMU] Discovery hello failed: {ex.Message}");
+        }
+    }
+
+    private void RefreshDiscoveryTargets()
+    {
+        discoveryTargets.Clear();
+        discoveryTargets.Add(IPAddress.Broadcast);
+
+        foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (networkInterface.OperationalStatus != OperationalStatus.Up)
+                continue;
+
+            IPInterfaceProperties properties = networkInterface.GetIPProperties();
+            foreach (UnicastIPAddressInformation addressInfo in properties.UnicastAddresses)
+            {
+                if (addressInfo.Address.AddressFamily != AddressFamily.InterNetwork || addressInfo.IPv4Mask == null)
+                    continue;
+
+                IPAddress broadcast = GetBroadcastAddress(addressInfo.Address, addressInfo.IPv4Mask);
+                if (!discoveryTargets.Contains(broadcast))
+                    discoveryTargets.Add(broadcast);
+            }
+        }
+    }
+
+    private static IPAddress GetBroadcastAddress(IPAddress address, IPAddress subnetMask)
+    {
+        byte[] ipBytes = address.GetAddressBytes();
+        byte[] maskBytes = subnetMask.GetAddressBytes();
+        byte[] broadcastBytes = new byte[ipBytes.Length];
+
+        for (int i = 0; i < broadcastBytes.Length; i++)
+            broadcastBytes[i] = (byte)(ipBytes[i] | ~maskBytes[i]);
+
+        return new IPAddress(broadcastBytes);
+    }
+
     public void StartReceiver()
     {
         if (running)
@@ -87,6 +159,7 @@ public class IMUReceiver : MonoBehaviour
         try
         {
             udpClient = new UdpClient(listenPort);
+            udpClient.EnableBroadcast = true;
             running = true;
             receiveThread = new Thread(ReceiveLoop)
             {

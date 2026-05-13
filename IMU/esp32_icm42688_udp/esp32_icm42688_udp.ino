@@ -30,6 +30,9 @@ constexpr uint32_t SEND_INTERVAL_MS = 10;
 constexpr uint32_t TEST_SCAN_INTERVAL_MS = 5000;
 constexpr int GYRO_CALIBRATION_SAMPLES = 300;
 constexpr uint32_t GYRO_CALIBRATION_DELAY_MS = 5;
+constexpr char DISCOVERY_HELLO[] = "IMU_HELLO";
+constexpr int IMU_INIT_RETRY_COUNT = 5;
+constexpr uint32_t IMU_INIT_RETRY_DELAY_MS = 300;
 
 WiFiUDP udp;
 ICM42688 imu(Wire, IMU_I2C_ADDR);
@@ -38,6 +41,9 @@ uint32_t lastSendMs = 0;
 uint32_t lastTestPrintMs = 0;
 uint32_t lastTestScanMs = 0;
 IPAddress udpTargetIP;
+IPAddress broadcastTargetIP;
+IPAddress discoveredClientIP;
+bool hasDiscoveredClient = false;
 bool imuReady = false;
 float gyroBiasX = 0.0f;
 float gyroBiasY = 0.0f;
@@ -119,7 +125,9 @@ void startAccessPoint() {
   }
 
   networkMode = NetworkMode::kAccessPoint;
-  udpTargetIP = calcBroadcast(WiFi.softAPIP(), WiFi.softAPSubnetMask());
+  broadcastTargetIP = calcBroadcast(WiFi.softAPIP(), WiFi.softAPSubnetMask());
+  udpTargetIP = broadcastTargetIP;
+  hasDiscoveredClient = false;
 
   Serial.println();
   Serial.println("WiFi STA failed, fallback to AP mode");
@@ -130,7 +138,7 @@ void startAccessPoint() {
   Serial.print("AP IP: ");
   Serial.println(WiFi.softAPIP());
   Serial.print("UDP broadcast target: ");
-  Serial.println(udpTargetIP);
+  Serial.println(broadcastTargetIP);
 }
 
 void connectNetwork() {
@@ -147,7 +155,9 @@ void connectNetwork() {
 
   if (WiFi.status() == WL_CONNECTED) {
     networkMode = NetworkMode::kStation;
-    udpTargetIP = calcBroadcast(WiFi.localIP(), WiFi.subnetMask());
+    broadcastTargetIP = calcBroadcast(WiFi.localIP(), WiFi.subnetMask());
+    udpTargetIP = broadcastTargetIP;
+    hasDiscoveredClient = false;
 
     Serial.println();
     Serial.print("WiFi connected, ESP32 IP: ");
@@ -155,7 +165,7 @@ void connectNetwork() {
     Serial.print("Subnet mask: ");
     Serial.println(WiFi.subnetMask());
     Serial.print("UDP broadcast target: ");
-    Serial.println(udpTargetIP);
+    Serial.println(broadcastTargetIP);
     return;
   }
 
@@ -170,9 +180,24 @@ void setupImu() {
     scanI2CDevices();
   }
 
-  const int status = imu.begin();
+  int status = -1;
+  for (int attempt = 1; attempt <= IMU_INIT_RETRY_COUNT; ++attempt) {
+    status = imu.begin();
+    if (status >= 0) {
+      break;
+    }
+
+    Serial.print("ICM42688 init failed, attempt ");
+    Serial.print(attempt);
+    Serial.print("/");
+    Serial.print(IMU_INIT_RETRY_COUNT);
+    Serial.print(", status = ");
+    Serial.println(status);
+    delay(IMU_INIT_RETRY_DELAY_MS);
+  }
+
   if (status < 0) {
-    Serial.print("ICM42688 init failed, status = ");
+    Serial.print("ICM42688 init failed after retries, status = ");
     Serial.println(status);
     imuReady = false;
     return;
@@ -250,6 +275,31 @@ void sendImuPacket() {
   Serial.print(packet);
 }
 
+void processUdpDiscovery() {
+  const int packetSize = udp.parsePacket();
+  if (packetSize <= 0) {
+    return;
+  }
+
+  char message[32];
+  const int length = udp.read(message, sizeof(message) - 1);
+  if (length <= 0) {
+    return;
+  }
+
+  message[length] = '\0';
+  if (strcmp(message, DISCOVERY_HELLO) != 0) {
+    return;
+  }
+
+  discoveredClientIP = udp.remoteIP();
+  udpTargetIP = discoveredClientIP;
+  hasDiscoveredClient = true;
+
+  Serial.print("Unity client discovered: ");
+  Serial.println(discoveredClientIP);
+}
+
 void runTestMode() {
   const uint32_t now = millis();
 
@@ -288,6 +338,8 @@ void loop() {
   }
 
   const uint32_t now = millis();
+  processUdpDiscovery();
+
   if (now - lastSendMs >= SEND_INTERVAL_MS) {
     lastSendMs = now;
     sendImuPacket();
