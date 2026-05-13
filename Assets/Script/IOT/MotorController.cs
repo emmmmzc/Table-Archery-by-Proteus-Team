@@ -35,7 +35,7 @@ public class MotorController : MonoBehaviour
     public string powerOnRawHex = "640002AA00000000000000000000000000000000000000000000000000BD0D0A";
     public string powerOffRawHex = "6400025500000000000000000000000000000000000000000000000000590D0A";
     public string defaultSpringRawHex = "64000102012C07D0641E00000000000000000000000000000000000000470D0A";
-    public string releaseProtectionRawHex = "6400A00105050000000000000000000000000000000000000000000000C50D0A";
+    public string releaseProtectionRawHex = "6400A00102030000000000000000000000000000000000000000000000A70D0A";
     // public string clearPullCountRawHex = "";
 
     [Header("Startup Delay")]
@@ -56,6 +56,14 @@ public class MotorController : MonoBehaviour
     [Tooltip("Maps integrated work (force × speed × Δt) to score.")]
     public float workToScoreMultiplier = 10f;
     public int maxWorkScore = 800;
+    public bool useQualityScore = false;
+    public int maxQualityScore = 1200;
+    public float qualityForceMax = 45f;
+    public float qualitySpeedMax = 12f;
+    public float qualityDistanceMax = 35f;
+    public float qualityForceWeight = 0.45f;
+    public float qualitySpeedWeight = 0.35f;
+    public float qualityDistanceWeight = 0.2f;
 
     [Header("Debug")]
     public bool logLifecycle = true;
@@ -80,6 +88,7 @@ public class MotorController : MonoBehaviour
     private float trackingStartTime;
     private float accumulatedWork;
     private float lastTrackingTime;
+    private float totalQualityScore;
 
     private Coroutine enablePackageRoutine;
     private Coroutine resumeAfterPauseRoutine;
@@ -193,6 +202,9 @@ public class MotorController : MonoBehaviour
             return;
         }
 
+        StopEnablePackageLoop();
+        CancelResumeAfterPauseRoutine();
+
         SendRawHex(powerOffRawHex);
     }
 
@@ -290,6 +302,15 @@ public class MotorController : MonoBehaviour
         if (!IsConnected())
             return disconnectedMotorScore;
 
+        if (useQualityScore)
+        {
+            float forceScore = Mathf.Clamp01(motorForceKg / qualityForceMax) * 100f;
+            float speedScore = Mathf.Clamp01(motorSpeedCmPerSec / qualitySpeedMax) * 90f;
+            float romScore = Mathf.Clamp01(motorDistanceCm / qualityDistanceMax) * 85f;
+            float quality = forceScore * qualityForceWeight + speedScore * qualitySpeedWeight + romScore * qualityDistanceWeight;
+            return Mathf.RoundToInt(Mathf.Clamp(quality, 0f, 100f));
+        }
+
         return Mathf.Max(0, Mathf.RoundToInt(motorForceKg));
     }
 
@@ -308,6 +329,18 @@ public class MotorController : MonoBehaviour
 
         UpdateTracking();
         isTracking = false;
+
+        if (useQualityScore)
+        {
+            int pullQuality = GetMotorScore();
+            totalQualityScore += pullQuality * (motorForceKg / 10f);
+
+            int qualityFinalScore = Mathf.RoundToInt(totalQualityScore);
+            qualityFinalScore = Mathf.Clamp(qualityFinalScore, 0, maxQualityScore);
+
+            totalQualityScore = 0f;
+            return qualityFinalScore;
+        }
 
         int finalScore = Mathf.RoundToInt(accumulatedWork * workToScoreMultiplier);
         finalScore = Mathf.Clamp(finalScore, 0, maxWorkScore);
