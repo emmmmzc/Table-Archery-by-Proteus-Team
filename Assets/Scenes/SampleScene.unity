@@ -368,11 +368,11 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 1626261873}
+    m_TransformParent: {fileID: 330585546}
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 8157566e3235e4c06b089dbba215ddc6, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.70000005
+      value: 0.7000001
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 8157566e3235e4c06b089dbba215ddc6, type: 3}
       propertyPath: m_LocalScale.y
@@ -388,7 +388,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 8157566e3235e4c06b089dbba215ddc6, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.539
+      value: -0.06099999
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 8157566e3235e4c06b089dbba215ddc6, type: 3}
       propertyPath: m_LocalPosition.z
@@ -768,6 +768,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 116083949}
+  - {fileID: 177924851}
   m_Father: {fileID: 1626261873}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &330585547
@@ -3307,7 +3308,7 @@ MonoBehaviour:
   gravityMultiplier: 1
   mouseSensitivity: 0.3
   upDownLookRange: 100
-  useMouseLook: 1
+  useMouseLook: 0
   fireForce: 50
   requireExcellentToFire: 0
   bowAnimator: {fileID: 625143881}
@@ -3369,7 +3370,6 @@ Transform:
   m_Children:
   - {fileID: 744728256}
   - {fileID: 330585546}
-  - {fileID: 177924851}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1626261874
