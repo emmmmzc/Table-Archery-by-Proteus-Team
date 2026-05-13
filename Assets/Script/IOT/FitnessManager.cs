@@ -37,11 +37,11 @@ public class FitnessManager : MonoBehaviour
     [Header("IMU")]
     public bool useImuScore = false;
     public int imuScoreOverride = 0;
-    public float excellentGyroAverage = 1f;
-    public float goodGyroAverage = 2f;
-    public float okGyroAverage = 4f;
-    public float shakyGyroAverage = 7f;
-    public float veryShakyGyroAverage = 10f;
+    public float excellentGyroAverage = 2f;
+    public float goodGyroAverage = 4f;
+    public float okGyroAverage = 7f;
+    public float shakyGyroAverage = 11f;
+    public float veryShakyGyroAverage = 16f;
 
     [Header("Session (Read Only)")]
     public int sessionScore;
