@@ -29,13 +29,15 @@ public class IMUFirstPersonTestController : MonoBehaviour
     public float pitchSign = -1f;
     public float rollSign = 1f;
     public bool applyRollToCamera = false;
-    public float pitchLimit = 80f;
+    public float pitchDownLimit = 20f;
+    public float pitchUpLimit = 45f;
     public float rollLimit = 45f;
     public float maxPacketDeltaSeconds = 0.05f;
 
     [Header("Drift Correction")]
     public bool calibrateGyroOnStart = true;
     public float gyroCalibrationSeconds = 1f;
+    public float maxGyroCalibrationWaitSeconds = 2f;
     public float calibrationStillGyroThreshold = 3f;
     public float calibrationAccelerationTolerance = 0.25f;
     public float maxGyroDegreesPerSecond = 250f;
@@ -63,6 +65,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
     private Vector3 gyroBias;
     private Vector3 gyroCalibrationSum;
     private float gyroCalibrationTimer;
+    private float gyroCalibrationWaitTimer;
     private int gyroCalibrationSamples;
     private bool gyroCalibrated;
     private float pitchStillTimer;
@@ -132,7 +135,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
         yaw += GetAxisValue(gyro, yawAxis) * gyroSensitivity * yawSign * deltaSeconds;
         pitch += GetAxisValue(gyro, pitchAxis) * gyroSensitivity * pitchSign * deltaSeconds;
         roll += GetAxisValue(gyro, rollAxis) * gyroSensitivity * rollSign * deltaSeconds;
-        pitch = Mathf.Clamp(pitch, -pitchLimit, pitchLimit);
+        pitch = Mathf.Clamp(pitch, -pitchUpLimit, pitchDownLimit);
         roll = Mathf.Clamp(roll, -rollLimit, rollLimit);
 
         transform.rotation = Quaternion.Euler(0f, yaw, 0f);
@@ -148,6 +151,8 @@ public class IMUFirstPersonTestController : MonoBehaviour
 
     private void UpdateStartupGyroCalibration(Vector3 rawGyro, Vector3 acceleration, float deltaSeconds)
     {
+        gyroCalibrationWaitTimer += deltaSeconds;
+
         bool gyroIsStill = rawGyro.magnitude <= calibrationStillGyroThreshold;
         bool accelerationLooksLikeGravity = Mathf.Abs(acceleration.magnitude - 1f) <= calibrationAccelerationTolerance;
 
@@ -156,6 +161,8 @@ public class IMUFirstPersonTestController : MonoBehaviour
             gyroCalibrationSum = Vector3.zero;
             gyroCalibrationTimer = 0f;
             gyroCalibrationSamples = 0;
+            if (gyroCalibrationWaitTimer >= maxGyroCalibrationWaitSeconds)
+                FinishStartupGyroCalibration();
             return;
         }
 
@@ -166,12 +173,19 @@ public class IMUFirstPersonTestController : MonoBehaviour
         if (gyroCalibrationTimer < gyroCalibrationSeconds)
             return;
 
-        gyroBias = gyroCalibrationSum / Mathf.Max(1, gyroCalibrationSamples);
+        FinishStartupGyroCalibration();
+    }
+
+    private void FinishStartupGyroCalibration()
+    {
+        if (gyroCalibrationSamples > 0)
+            gyroBias = gyroCalibrationSum / gyroCalibrationSamples;
+
         gyroCalibrated = true;
         filteredGyro = Vector3.zero;
 
         if (logState)
-            Debug.Log($"[IMU FPS] gyro calibrated, bias={gyroBias}");
+            Debug.Log($"[IMU FPS] gyro calibrated, bias={gyroBias}, samples={gyroCalibrationSamples}");
     }
 
     private void UpdatePitchDriftCorrection(Vector3 rawGyro, Vector3 acceleration, float deltaSeconds)
@@ -259,6 +273,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
         gyroBias = Vector3.zero;
         gyroCalibrationSum = Vector3.zero;
         gyroCalibrationTimer = 0f;
+        gyroCalibrationWaitTimer = 0f;
         gyroCalibrationSamples = 0;
         pitchStillTimer = 0f;
         gyroCalibrated = !calibrateGyroOnStart;

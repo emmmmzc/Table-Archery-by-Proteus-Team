@@ -987,7 +987,7 @@ MonoBehaviour:
   horizontalRange: 30
   depthRange: 5
   verticalOffset: 20
-  totalWaves: 2
+  totalWaves: 0
   minZombiesPerWave: 3
   maxZombiesPerWave: 5
   timeBetweenWaves: 5
@@ -1738,6 +1738,9 @@ MonoBehaviour:
   useMotorDistanceTrigger: 1
   motorChargeStartDistance: 30
   motorFireReleaseDistance: 30
+  motorReboundMinSpeed: 15
+  motorReboundDistanceEpsilon: 0.5
+  motorChargeWindowSeconds: 0.8
   inputHandler: {fileID: 0}
   disconnectedMotorScore: 20
   workToScoreMultiplier: 10
@@ -4097,9 +4100,14 @@ MonoBehaviour:
   maxPacketDeltaSeconds: 0.05
   calibrateGyroOnStart: 1
   gyroCalibrationSeconds: 1
-  calibrationStillGyroThreshold: 3
+  maxGyroCalibrationWaitSeconds: 2
+  calibrationStillGyroThreshold: 0.8
   calibrationAccelerationTolerance: 0.25
   maxGyroDegreesPerSecond: 250
+  correctPitchDriftWhileStill: 1
+  pitchDriftStillGyroThreshold: 2.5
+  pitchDriftStillSeconds: 0.3
+  pitchBiasCorrectionSpeed: 0.6
   allowKeyboardMove: 1
   moveSpeed: 3
   sprintMultiplier: 2

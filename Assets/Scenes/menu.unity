@@ -1772,7 +1772,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d27e54baa1936c2448810813beb10cc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MotorController
-  portName: COM7
+  portName: COM18
   staleSeconds: 3
   springBaseForce: 100
   springPullLimit: 100
@@ -1792,6 +1792,9 @@ MonoBehaviour:
   useMotorDistanceTrigger: 1
   motorChargeStartDistance: 80
   motorFireReleaseDistance: 25
+  motorReboundMinSpeed: 15
+  motorReboundDistanceEpsilon: 0.5
+  motorChargeWindowSeconds: 0.8
   inputHandler: {fileID: 0}
   disconnectedMotorScore: 20
   workToScoreMultiplier: 10
