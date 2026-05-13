@@ -39,6 +39,10 @@ public class IMUFirstPersonTestController : MonoBehaviour
     public float calibrationStillGyroThreshold = 3f;
     public float calibrationAccelerationTolerance = 0.25f;
     public float maxGyroDegreesPerSecond = 250f;
+    public bool correctPitchDriftWhileStill = true;
+    public float pitchDriftStillGyroThreshold = 1.5f;
+    public float pitchDriftStillSeconds = 0.6f;
+    public float pitchBiasCorrectionSpeed = 0.15f;
 
     [Header("Keyboard Movement")]
     public bool allowKeyboardMove = true;
@@ -61,6 +65,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
     private float gyroCalibrationTimer;
     private int gyroCalibrationSamples;
     private bool gyroCalibrated;
+    private float pitchStillTimer;
 
     void Start()
     {
@@ -117,6 +122,8 @@ public class IMUFirstPersonTestController : MonoBehaviour
             return;
         }
 
+        UpdatePitchDriftCorrection(packet.gyroscope, packet.acceleration, deltaSeconds);
+
         Vector3 gyro = ClampGyro(packet.gyroscope - gyroBias);
         gyro = ApplyDeadZone(gyro);
         filteredGyro = Vector3.Lerp(filteredGyro, gyro, 1f - gyroSmoothing);
@@ -165,6 +172,35 @@ public class IMUFirstPersonTestController : MonoBehaviour
 
         if (logState)
             Debug.Log($"[IMU FPS] gyro calibrated, bias={gyroBias}");
+    }
+
+    private void UpdatePitchDriftCorrection(Vector3 rawGyro, Vector3 acceleration, float deltaSeconds)
+    {
+        if (!correctPitchDriftWhileStill)
+            return;
+
+        bool gyroIsStill = rawGyro.magnitude <= pitchDriftStillGyroThreshold;
+        bool accelerationLooksLikeGravity = Mathf.Abs(acceleration.magnitude - 1f) <= calibrationAccelerationTolerance;
+
+        if (!gyroIsStill || !accelerationLooksLikeGravity)
+        {
+            pitchStillTimer = 0f;
+            return;
+        }
+
+        pitchStillTimer += deltaSeconds;
+        if (pitchStillTimer < pitchDriftStillSeconds)
+            return;
+
+        float rawPitchGyro = GetAxisValue(rawGyro, pitchAxis);
+        float currentPitchBias = GetAxisValue(gyroBias, pitchAxis);
+        float correctedPitchBias = Mathf.MoveTowards(
+            currentPitchBias,
+            rawPitchGyro,
+            pitchBiasCorrectionSpeed * deltaSeconds
+        );
+
+        SetAxisValue(ref gyroBias, pitchAxis, correctedPitchBias);
     }
 
     private float GetPacketDeltaSeconds(uint timestampMs)
@@ -224,6 +260,7 @@ public class IMUFirstPersonTestController : MonoBehaviour
         gyroCalibrationSum = Vector3.zero;
         gyroCalibrationTimer = 0f;
         gyroCalibrationSamples = 0;
+        pitchStillTimer = 0f;
         gyroCalibrated = !calibrateGyroOnStart;
         hasLastTimestamp = false;
 
@@ -243,6 +280,22 @@ public class IMUFirstPersonTestController : MonoBehaviour
                 return value.z;
             default:
                 return 0f;
+        }
+    }
+
+    private static void SetAxisValue(ref Vector3 value, ImuAxis axis, float axisValue)
+    {
+        switch (axis)
+        {
+            case ImuAxis.X:
+                value.x = axisValue;
+                break;
+            case ImuAxis.Y:
+                value.y = axisValue;
+                break;
+            case ImuAxis.Z:
+                value.z = axisValue;
+                break;
         }
     }
 
