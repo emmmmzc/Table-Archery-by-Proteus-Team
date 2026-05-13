@@ -71,6 +71,10 @@ public class MotorController : MonoBehaviour
     public bool logRawRx = true;
     public bool logDecodedStatus = true;
 
+    private ushort SpringBaseForce => springBaseForce;
+    private ushort SpringPullLimit => springPullLimit;
+    private byte SpringDistance => springDistance;
+
 #if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
     private SerialPort serialPort;
 #endif
@@ -234,10 +238,8 @@ public class MotorController : MonoBehaviour
         if (!initialized)
             return;
 
-        if (clearPullCountOnInit)
-            SendSpringModeWithClear(springBaseForce, springPullLimit, springDistance, pullCountClearFlag);
-        else
-            SendSpringMode(springBaseForce, springPullLimit, springDistance);
+        SendSpringMode(springBaseForce, springPullLimit, springDistance);
+        SendRawHex(releaseProtectionRawHex);
     }
 
     /// <summary>
@@ -280,9 +282,7 @@ public class MotorController : MonoBehaviour
             yield return new WaitForSeconds(defaultModeDelaySeconds);
 
         SendSpringMode(springBaseForce, springPullLimit, springDistance);
-
-        if (!string.IsNullOrWhiteSpace(releaseProtectionRawHex))
-            SendRawHex(releaseProtectionRawHex);
+        SendRawHex(releaseProtectionRawHex);
 
         // If startup sequence never ran this scene (e.g. scene name gate), keep-alive may never have started.
         StartEnablePackageLoop();
@@ -512,20 +512,15 @@ public class MotorController : MonoBehaviour
             yield return new WaitForSeconds(defaultModeDelaySeconds);
 
         SendSpringMode(springBaseForce, springPullLimit, springDistance);
-
-        if (!string.IsNullOrWhiteSpace(releaseProtectionRawHex))
-            SendRawHex(releaseProtectionRawHex);
+        SendRawHex(releaseProtectionRawHex);
 
         StartEnablePackageLoop();
     }
 
     private void SendEnablePackage()
     {
-        //SendPowerOn();
-
         SendSpringMode(springBaseForce, springPullLimit, springDistance);
         SendRawHex(releaseProtectionRawHex);
-
     }
 
     private void StartEnablePackageLoop()
