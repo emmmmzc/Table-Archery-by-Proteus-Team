@@ -80,6 +80,9 @@ public class BossHealth : MonoBehaviour
     {
         Debug.Log("BOSS DEFEATED! YOU WIN!");
         AudioManager.Instance.Play("Victory");
+        MotorController motorController = FindAnyObjectByType<MotorController>();
+        if (motorController != null)
+            motorController.SendPowerOff();
         if (winPanel != null)
         {
             FitnessManager fitnessManager = FindAnyObjectByType<FitnessManager>();

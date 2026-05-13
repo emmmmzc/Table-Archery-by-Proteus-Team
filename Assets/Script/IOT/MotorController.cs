@@ -34,12 +34,15 @@ public class MotorController : MonoBehaviour
     public string powerOnRawHex = "640002AA00000000000000000000000000000000000000000000000000BD0D0A";
     public string powerOffRawHex = "6400025500000000000000000000000000000000000000000000000000590D0A";
     public string defaultSpringRawHex = "64000102012C07D0641E00000000000000000000000000000000000000470D0A";
-    public string releaseProtectionRawHex = "6400A00105050000000000000000000000000000000000000000000000C50D0A";
+    public string releaseProtectionRawHex = "6400A00102030000000000000000000000000000000000000000000000A70D0A";
     // public string clearPullCountRawHex = "";
 
     [Header("Startup Delay")]
     public float powerOnDelaySeconds = 0.2f;
     public float defaultModeDelaySeconds = 0.1f;
+
+    [Header("Enable Package")]
+    public float enablePackageIntervalSeconds = 1f;
 
     [Header("Motor Trigger Input")]
     public bool useMotorDistanceTrigger = true;
@@ -74,6 +77,8 @@ public class MotorController : MonoBehaviour
     private float accumulatedForce;
     private float lastTrackingTime;
 
+    private Coroutine enablePackageRoutine;
+
     public float MotorForceKg => motorForceKg;
     public float MotorSpeedCmPerSec => motorSpeedCmPerSec;
     public float MotorDistanceCm => motorDistanceCm;
@@ -85,6 +90,10 @@ public class MotorController : MonoBehaviour
         if (logLifecycle)
             Debug.Log($"[IOT][Motor] Start on {gameObject.name} (port={portName})");
         Initialize(portName);
+
+        springBaseForce = (ushort)PlayerPrefs.GetInt("MotorBaseForce", 300);
+
+        springDistance = (byte)PlayerPrefs.GetInt("MotorDistance", 30);
     }
 
     void Update()
@@ -139,6 +148,7 @@ public class MotorController : MonoBehaviour
     public void Shutdown()
     {
         initialized = false;
+        StopEnablePackageLoop();
 
 #if USE_SERIAL_PORTS && (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
         if (serialPort == null)
@@ -404,11 +414,48 @@ public class MotorController : MonoBehaviour
         if (defaultModeDelaySeconds > 0f)
             yield return new WaitForSeconds(defaultModeDelaySeconds);
 
-        if (!string.IsNullOrWhiteSpace(defaultSpringRawHex))
-            SendRawHex(defaultSpringRawHex);
+        SendSpringMode(springBaseForce, springPullLimit, springDistance);
 
         if (!string.IsNullOrWhiteSpace(releaseProtectionRawHex))
             SendRawHex(releaseProtectionRawHex);
+
+        StartEnablePackageLoop();
+    }
+
+    private void SendEnablePackage()
+    {
+        //SendPowerOn();
+
+        SendSpringMode(springBaseForce, springPullLimit, springDistance);
+
+        if (!string.IsNullOrWhiteSpace(releaseProtectionRawHex))
+            SendRawHex(releaseProtectionRawHex);
+    }
+
+    private void StartEnablePackageLoop()
+    {
+        if (enablePackageRoutine != null)
+            return;
+
+        enablePackageRoutine = StartCoroutine(EnablePackageLoop());
+    }
+
+    private void StopEnablePackageLoop()
+    {
+        if (enablePackageRoutine == null)
+            return;
+
+        StopCoroutine(enablePackageRoutine);
+        enablePackageRoutine = null;
+    }
+
+    private IEnumerator EnablePackageLoop()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(enablePackageIntervalSeconds);
+            SendEnablePackage();
+        }
     }
 
     /* ------------------------------ Helpers ------------------------------ */

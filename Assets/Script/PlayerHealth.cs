@@ -130,6 +130,9 @@ public class PlayerHealth : MonoBehaviour
         isDead = true;
         Debug.Log("Player died - YOU SUCK!");
         AudioManager.Instance.Play("PlayerDeath");
+        MotorController motorController = FindAnyObjectByType<MotorController>();
+        if (motorController != null)
+            motorController.SendPowerOff();
 
         if (losePanel != null)
         {

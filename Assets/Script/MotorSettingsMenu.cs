@@ -5,26 +5,22 @@ using UnityEngine.UI;
 public class MotorSettingsMenu : MonoBehaviour
 {
     private const string PrefBaseForce = "MotorBaseForce";
-    private const string PrefPullLimit = "MotorPullLimit";
     private const string PrefDistance = "MotorDistance";
 
     [Header("Sliders")]
     public Slider baseForceSlider;
-    public Slider pullLimitSlider;
     public Slider distanceSlider;
 
     [Header("Labels")]
     public TMP_Text baseForceText;
-    public TMP_Text pullLimitText;
     public TMP_Text distanceText;
 
     [Header("Behavior")]
     public bool autoSaveOnChange = false;
-    public bool forceDefaultsOnStart = true;
+    public bool forceDefaultsOnStart = false;
 
     [Header("Defaults")]
     public int defaultBaseForce = 300;
-    public int defaultPullLimit = 2000;
     public int defaultDistance = 30;
 
     void Start()
@@ -42,13 +38,6 @@ public class MotorSettingsMenu : MonoBehaviour
             Save();
     }
 
-    public void OnPullLimitChanged(float value)
-    {
-        UpdateLabel(pullLimitText, value);
-        if (autoSaveOnChange)
-            Save();
-    }
-
     public void OnDistanceChanged(float value)
     {
         UpdateLabel(distanceText, value);
@@ -59,17 +48,12 @@ public class MotorSettingsMenu : MonoBehaviour
     public void Apply()
     {
         Save();
-        MotorController motorController = FindAnyObjectByType<MotorController>();
-        if (motorController != null)
-            motorController.ApplySpringSettings();
     }
 
     public void Save()
     {
         if (baseForceSlider != null)
             PlayerPrefs.SetInt(PrefBaseForce, Mathf.RoundToInt(baseForceSlider.value));
-        if (pullLimitSlider != null)
-            PlayerPrefs.SetInt(PrefPullLimit, Mathf.RoundToInt(pullLimitSlider.value));
         if (distanceSlider != null)
             PlayerPrefs.SetInt(PrefDistance, Mathf.RoundToInt(distanceSlider.value));
 
@@ -83,13 +67,6 @@ public class MotorSettingsMenu : MonoBehaviour
             int value = PlayerPrefs.GetInt(PrefBaseForce, Mathf.RoundToInt(baseForceSlider.value));
             baseForceSlider.SetValueWithoutNotify(value);
             UpdateLabel(baseForceText, value);
-        }
-
-        if (pullLimitSlider != null)
-        {
-            int value = PlayerPrefs.GetInt(PrefPullLimit, Mathf.RoundToInt(pullLimitSlider.value));
-            pullLimitSlider.SetValueWithoutNotify(value);
-            UpdateLabel(pullLimitText, value);
         }
 
         if (distanceSlider != null)
@@ -106,12 +83,6 @@ public class MotorSettingsMenu : MonoBehaviour
         {
             baseForceSlider.SetValueWithoutNotify(defaultBaseForce);
             UpdateLabel(baseForceText, defaultBaseForce);
-        }
-
-        if (pullLimitSlider != null)
-        {
-            pullLimitSlider.SetValueWithoutNotify(defaultPullLimit);
-            UpdateLabel(pullLimitText, defaultPullLimit);
         }
 
         if (distanceSlider != null)
