@@ -1,5 +1,6 @@
 # 🏹 Table Archery (by Proteus Team)
 HKUST ISD 2026 Year Long Project (We are all sophormores at this period of time)
+Table archery, a gamified archery simulator that is designed for working class and students to be motivated to do upper body workout in front of their desks.
 ## 🛠️ Development Team
 
 | Name | Role | GitHub Profile |
@@ -11,6 +12,7 @@ HKUST ISD 2026 Year Long Project (We are all sophormores at this period of time)
 | **Joseph** | Software | [@siupongchu](https://github.com/siupongchu) |
 
 Thanks to all the collaborators! We have really done a great job!
+
 
 这是 Proteus 团队的桌面射箭打 Boss 游戏的 Unity 工程仓库。
 
