@@ -435,7 +435,7 @@ MonoBehaviour:
   keyBHex: 6400010001F401F4000000000000000000000000000000000000000000B80D0A
   keyCHex: 6400010201F407D0640000000000000000000000000000000000000000030D0A
   keyDHex: 6400025500000000000000000000000000000000000000000000000000590D0A
-  keyEHex: 6400A00105050000000000000000000000000000000000000000000000C50D0A
+  keyEHex: 6400A00102030000000000000000000000000000000000000000000000A70D0A
 --- !u!4 &236236131
 Transform:
   m_ObjectHideFlags: 0
@@ -984,10 +984,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ZombieSpawner
   zombiePrefab: {fileID: 7719948653749899918, guid: a23d491db5fc8438b82accbe42287a79, type: 3}
   bossTransform: {fileID: 2041310974}
-  horizontalRange: 30
+  horizontalRange: 25
   depthRange: 5
   verticalOffset: 20
-  totalWaves: 5
+  totalWaves: 0
   minZombiesPerWave: 2
   maxZombiesPerWave: 3
   timeBetweenWaves: 5
@@ -1731,9 +1731,10 @@ MonoBehaviour:
   powerOnRawHex: 640002AA00000000000000000000000000000000000000000000000000BD0D0A
   powerOffRawHex: 6400025500000000000000000000000000000000000000000000000000590D0A
   defaultSpringRawHex: 6400010201F407D0640000000000000000000000000000000000000000030D0A
-  releaseProtectionRawHex: 6400A00105050000000000000000000000000000000000000000000000C50D0A
+  releaseProtectionRawHex: 6400A00102030000000000000000000000000000000000000000000000A70D0A
   powerOnDelaySeconds: 0.2
   defaultModeDelaySeconds: 0.1
+  releaseProtectionDelaySeconds: 0.3
   enablePackageIntervalSeconds: 1
   useMotorDistanceTrigger: 1
   motorChargeStartDistance: 30
@@ -1742,11 +1743,11 @@ MonoBehaviour:
   disconnectedMotorScore: 20
   workToScoreMultiplier: 0.06
   maxWorkScore: 800
-  useQualityScore: 0
-  maxQualityScore: 1200
-  qualityForceMax: 45
-  qualitySpeedMax: 12
-  qualityDistanceMax: 35
+  useQualityScore: 1
+  maxQualityScore: 12000
+  qualityForceMax: 4500
+  qualitySpeedMax: 1200
+  qualityDistanceMax: 3500
   qualityForceWeight: 0.45
   qualitySpeedWeight: 0.35
   qualityDistanceWeight: 0.2
@@ -5060,7 +5061,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2041310971}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 11d1dd56b5d6f478b96a7ba43cd6fca7, type: 3}
   m_Name: 
@@ -5070,11 +5071,11 @@ MonoBehaviour:
   player: {fileID: 1626261873}
   minInterval: 5
   maxInterval: 10
-  projectileCount: 0
-  horizontalRange: 20
+  projectileCount: 2
+  horizontalRange: 10
   verticalRange: 10
-  spawnHeightOffset: 40
-  projectileSpeed: 10
+  spawnHeightOffset: 30
+  projectileSpeed: 8
 --- !u!95 &2041310973 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 2716000697371046431, guid: 87f86c604ff734c76a48bd2fb6280196, type: 3}
@@ -5097,7 +5098,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: faafb757a146848789955a25edecdd8a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BossHealth
-  hitsToDefeat: 2
+  hitsToDefeat: 3
   bossAnimator: {fileID: 0}
   hitTrigger: Hit
   specialDeathTrigger: SpecialDeath

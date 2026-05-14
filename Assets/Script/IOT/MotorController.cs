@@ -41,7 +41,7 @@ public class MotorController : MonoBehaviour
     [Header("Startup Delay")]
     public float powerOnDelaySeconds = 0.2f;
     public float defaultModeDelaySeconds = 0.1f;
-    public float releaseProtectionDelaySeconds = 0.08f;
+    public float releaseProtectionDelaySeconds = 0.3f;
 
     [Header("Enable Package")]
     public float enablePackageIntervalSeconds = 1f;
