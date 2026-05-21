@@ -32,9 +32,28 @@ SolidWorks files are in the repo
 <img width="1920" height="1080" alt="10" src="https://github.com/user-attachments/assets/361984f7-3787-4125-a860-ac9ad1ec6c34" />
 <img width="1920" height="1080" alt="12" src="https://github.com/user-attachments/assets/51a3e7af-028b-44cb-a0b9-067abadf80ae" />
 <img width="1920" height="1080" alt="11" src="https://github.com/user-attachments/assets/f3a1a5b2-1905-488b-a370-7384956a804e" />
+<img width="1714" height="971" alt="image" src="https://github.com/user-attachments/assets/705946c5-f7aa-4439-abbf-29253939dee9" />
+<img width="981" height="763" alt="屏幕截图 2026-05-21 120120" src="https://github.com/user-attachments/assets/7050047c-b658-4e73-b056-4aaf39f70f2e" />
+
 ### IMU
-<img width="1920" height="1080" alt="13" src="https://github.com/user-attachments/assets/218d6c66-851d-439e-8568-f614bb80bf55" />
+The sensor we used is ICM4-42688 6-axis IMU for archery orientation controller. It could be better if 9-axis IMU was used.
+<img width="760" height="538" alt="屏幕截图 2026-05-13 202530" src="https://github.com/user-attachments/assets/0f251820-4013-4dfa-8c18-e092b6fa58b9" />
+
+### IMU Drift Handling
+IMU drift is reduced in `IMUFirstPersonTestController.cs` using several lightweight techniques:
+
+- **Gyroscope bias calibration**: averages gyro readings while the IMU is still, then subtracts this bias from future readings.
+- **Stillness detection**: only calibrates when gyro movement is low and acceleration is close to `1g`.
+- **Dead zone filtering**: ignores very small gyro values to prevent tiny noise from accumulating into drift.
+- **Low-pass smoothing**: smooths gyro input with `Vector3.Lerp` to reduce jitter.
+- **Gyro clamping**: limits extreme gyro values to avoid sudden camera jumps.
+- **Drift correction while still**: slowly updates yaw and pitch bias when the IMU is stationary.
+- **Delta-time limiting**: caps packet time gaps so delayed packets do not cause large rotations.
+- **Shot-based recentering**: recalibrates and recenters the IMU after firing.
+
+These methods were chosen instead of a Kalman or complementary filter because the IMU is used for responsive game aiming, not precise scientific orientation tracking.
 <img width="1920" height="1080" alt="14" src="https://github.com/user-attachments/assets/ab2a7e75-3d30-42cd-a114-3ce426f16429" />
+
 ### Unity
 Scene -- Menu, navigate to the menu first
 Scene -- Sample Scene, navigate to the game directly
