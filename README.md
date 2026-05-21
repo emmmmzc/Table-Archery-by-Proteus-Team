@@ -28,13 +28,17 @@ That is why we invent Proteus----a home-used multi-functional trainer
 # Subsystem introduction
 ## Mechanical Structure
 SolidWorks files are in the repo
+
+This device is a force-feedback system designed for archery-based motion-controlled games, intended to recreate a realistic bow-drawing experience. At its core, a spool and tension control unit housed within the enclosure simulates the resistance and recoil of a bowstring. An integrated active cooling module ensures stable performance during extended use. The front of the system features an adjustable gantry structure, allowing the line exit height to be modified to accommodate different player heights and drawing postures, ensuring natural movement trajectories. A 360-degree universal pulley guides the cable smoothly in all directions, minimizing jitter and cable wear while enhancing the authenticity and fluidity of the drawing motion. Overall, the design balances immersion, stability, and adaptability to deliver a highly realistic interactive archery gaming experience.
+
 <img width="1242" height="931" alt="image" src="https://github.com/user-attachments/assets/b5143b93-bc04-46f6-b200-e04a6f6fb27a" />
 
 ## Motor
 For the motor, we utilized 
+<img width="981" height="763" alt="屏幕截图 2026-05-21 120120" src="https://github.com/user-attachments/assets/7050047c-b658-4e73-b056-4aaf39f70f2e" />
 <img width="1920" height="1080" alt="11" src="https://github.com/user-attachments/assets/f3a1a5b2-1905-488b-a370-7384956a804e" />
 <img width="1714" height="971" alt="image" src="https://github.com/user-attachments/assets/705946c5-f7aa-4439-abbf-29253939dee9" />
-<img width="981" height="763" alt="屏幕截图 2026-05-21 120120" src="https://github.com/user-attachments/assets/7050047c-b658-4e73-b056-4aaf39f70f2e" />
+
 
 ## IMU
 The sensor we used is ICM4-42688 6-axis IMU for archery orientation controller. It could be better if 9-axis IMU was used.
