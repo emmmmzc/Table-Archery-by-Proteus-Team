@@ -4,7 +4,7 @@ HKUST ISD 2026 Year Long Project (We are all sophormores at this period of time)
 Table archery, a gamified archery simulator that is designed for working class and students to be motivated to do upper body workout in front of their desks.
 <img width="1920" height="1080" alt="4" src="https://github.com/user-attachments/assets/4c3eb6ee-6834-4cb7-9835-5c6835b5c8e1" />
 
-## 🛠️ Development Team
+# 🛠️ Development Team
 
 | Name | Role | GitHub Profile |
 | :--- | :--- | :--- |
@@ -22,23 +22,25 @@ They want to solve the problem because of the pain as well as appearance. But th
 That is why we invent Proteus----a home-used multi-functional trainer
 <img width="1000" height="892" alt="upper-cross-syndrome" src="https://github.com/user-attachments/assets/89373c7d-65aa-424a-bea6-780cc987df0c" />
 
-## System Diagram
+# System Diagram
 <img width="2271" height="1167" alt="image" src="https://github.com/user-attachments/assets/e718e0a8-83f7-4e32-b2f8-c9d39178460f" />
 
-## Subsystem introduction
-### Mechanical Structure
+# Subsystem introduction
+## Mechanical Structure
 SolidWorks files are in the repo
-### Motor
+<img width="1242" height="931" alt="image" src="https://github.com/user-attachments/assets/b5143b93-bc04-46f6-b200-e04a6f6fb27a" />
+
+## Motor
 For the motor, we utilized 
 <img width="1920" height="1080" alt="11" src="https://github.com/user-attachments/assets/f3a1a5b2-1905-488b-a370-7384956a804e" />
 <img width="1714" height="971" alt="image" src="https://github.com/user-attachments/assets/705946c5-f7aa-4439-abbf-29253939dee9" />
 <img width="981" height="763" alt="屏幕截图 2026-05-21 120120" src="https://github.com/user-attachments/assets/7050047c-b658-4e73-b056-4aaf39f70f2e" />
 
-### IMU
+## IMU
 The sensor we used is ICM4-42688 6-axis IMU for archery orientation controller. It could be better if 9-axis IMU was used.
 <img width="760" height="538" alt="屏幕截图 2026-05-13 202530" src="https://github.com/user-attachments/assets/0f251820-4013-4dfa-8c18-e092b6fa58b9" />
 
-### IMU Drift Handling
+## IMU Drift Handling
 IMU drift is reduced in `IMUFirstPersonTestController.cs` using several lightweight techniques:
 
 - **Gyroscope bias calibration**: averages gyro readings while the IMU is still, then subtracts this bias from future readings.
@@ -53,7 +55,7 @@ IMU drift is reduced in `IMUFirstPersonTestController.cs` using several lightwei
 These methods were chosen instead of a Kalman or complementary filter because the IMU is used for responsive game aiming, not precise scientific orientation tracking.
 <img width="1920" height="1080" alt="14" src="https://github.com/user-attachments/assets/ab2a7e75-3d30-42cd-a114-3ce426f16429" />
 
-### Unity
+## Unity
 Scene -- Menu, navigate to the menu first
 Scene -- Sample Scene, navigate to the game directly
 
