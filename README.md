@@ -29,8 +29,7 @@ That is why we invent Proteus----a home-used multi-functional trainer
 ### Mechanical Structure
 SolidWorks files are in the repo
 ### Motor
-<img width="1920" height="1080" alt="10" src="https://github.com/user-attachments/assets/361984f7-3787-4125-a860-ac9ad1ec6c34" />
-<img width="1920" height="1080" alt="12" src="https://github.com/user-attachments/assets/51a3e7af-028b-44cb-a0b9-067abadf80ae" />
+For the motor, we utilized 
 <img width="1920" height="1080" alt="11" src="https://github.com/user-attachments/assets/f3a1a5b2-1905-488b-a370-7384956a804e" />
 <img width="1714" height="971" alt="image" src="https://github.com/user-attachments/assets/705946c5-f7aa-4439-abbf-29253939dee9" />
 <img width="981" height="763" alt="屏幕截图 2026-05-21 120120" src="https://github.com/user-attachments/assets/7050047c-b658-4e73-b056-4aaf39f70f2e" />
