@@ -63,6 +63,10 @@ These methods were chosen instead of a Kalman or complementary filter because th
 Scene -- Menu, navigate to the menu first
 Scene -- Sample Scene, navigate to the game directly
 
+
+https://github.com/user-attachments/assets/c7c11e17-94d3-4452-ab52-85d95faa82e4
+
+
 ## ?
 这是 Proteus 团队的桌面射箭打 Boss 游戏的 Unity 工程仓库。
 
